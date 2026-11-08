@@ -1,0 +1,54 @@
+{#
+  partials/side_iconbar.html
+  The icon-only side navigation bar, shared by all pages.
+  Shows role-appropriate icons. The logout link calls /logout.
+#}
+{% set cu = current_user %}
+<nav class="pw-sidebar" aria-label="Secondary navigation">
+
+  {% if cu.is_authenticated and cu.role == 'viewer' %}
+    {# ── Viewer sidebar: My Account ── #}
+    <a href="{{ url_for('viewer.account') }}"
+       class="pw-sidebar-link {% if active_page == 'account' %}active{% endif %}"
+       data-bs-toggle="tooltip" data-bs-placement="right"
+       title="My Account" aria-label="My Account"
+       {% if active_page == 'account' %}aria-current="page"{% endif %}>
+      <i class="bi bi-person-circle" aria-hidden="true"></i>
+    </a>
+
+  {% else %}
+    {# ── Admin sidebar: Scan History, User Management, Audit Log ── #}
+    <a href="{{ url_for('admin.history') }}"
+       class="pw-sidebar-link {% if active_page == 'history' %}active{% endif %}"
+       data-bs-toggle="tooltip" data-bs-placement="right"
+       title="Scan History" aria-label="Scan History"
+       {% if active_page == 'history' %}aria-current="page"{% endif %}>
+      <i class="bi bi-clock-history" aria-hidden="true"></i>
+    </a>
+
+    <a href="{{ url_for('admin.users') }}"
+       class="pw-sidebar-link {% if active_page == 'users' %}active{% endif %}"
+       data-bs-toggle="tooltip" data-bs-placement="right"
+       title="User Management" aria-label="User Management"
+       {% if active_page == 'users' %}aria-current="page"{% endif %}>
+      <i class="bi bi-people" aria-hidden="true"></i>
+    </a>
+
+    <a href="{{ url_for('admin.audit_log') }}"
+       class="pw-sidebar-link {% if active_page == 'audit_log' %}active{% endif %}"
+       data-bs-toggle="tooltip" data-bs-placement="right"
+       title="Audit Log" aria-label="Audit Log"
+       {% if active_page == 'audit_log' %}aria-current="page"{% endif %}>
+      <i class="bi bi-journal-text" aria-hidden="true"></i>
+    </a>
+  {% endif %}
+
+  {# ── BOTTOM: Logout (wired to the real /logout route) ── #}
+  <a href="{{ url_for('auth.logout') }}"
+     class="pw-sidebar-link pw-sidebar-logout mt-auto mb-2"
+     data-bs-toggle="tooltip" data-bs-placement="right"
+     title="Sign Out" aria-label="Sign Out">
+    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+  </a>
+
+</nav>

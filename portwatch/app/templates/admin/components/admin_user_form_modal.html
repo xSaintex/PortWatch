@@ -1,0 +1,262 @@
+{#
+  admin/components/admin_user_form_modal.html
+  Shared Add / Edit user modal.
+
+  SIZING: modal-xl (≈1140 px) + modal-dialog-centered.
+  NO modal-dialog-scrollable — the entire modal including footer must always
+  be visible without scrolling on a 1366×640 screen.
+  All padding is deliberately compact to achieve this.
+
+  JS (admin_user_management.js) uses show.bs.modal + event.relatedTarget
+  to swap title, icon, form action, and prefilled values.
+  Opening Add always resets the form to empty defaults.
+#}
+
+<div class="modal fade" id="userFormModal" tabindex="-1"
+     aria-labelledby="userFormModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content pw-modal-content">
+
+      {# ── HEADER (extra compact) ── #}
+      <div class="modal-header pw-modal-header" style="padding:10px 18px;">
+        <div class="d-flex align-items-center gap-2 flex-grow-1">
+          <i class="bi bi-person-plus pw-modal-title-icon" id="userFormIcon" aria-hidden="true"></i>
+          <div>
+            <h5 class="modal-title mb-0" id="userFormModalLabel">Add User</h5>
+            <p class="pw-modal-subtitle mb-0" id="userFormSubtitle">
+              Create an account for lab staff or IT personnel.
+            </p>
+          </div>
+        </div>
+        <button type="button" class="pw-modal-close ms-2"
+                data-bs-dismiss="modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <form id="userForm" method="POST"
+            action="{{ url_for('admin.users_add') }}" novalidate>
+
+        {# ── BODY (compact padding) ── #}
+        <div class="modal-body" style="padding:14px 18px 8px;">
+
+          {# ── ROW 1: Full Name | Username ── #}
+          <div class="row g-2 mb-2">
+            <div class="col-12 col-md-6">
+              <label for="userFullName" class="pw-form-label">
+                Full Name <span class="pw-required">*</span>
+              </label>
+              <input type="text" id="userFullName" name="full_name"
+                     class="form-control pw-input {% if form_errors.full_name %}is-invalid{% endif %}"
+                     maxlength="60" placeholder="e.g. Jose Dela Cruz"
+                     value="{{ form_data.full_name or '' }}"
+                     required autocomplete="off"/>
+              {% if form_errors.full_name %}
+                <div class="invalid-feedback d-block">{{ form_errors.full_name }}</div>
+              {% else %}
+                <div class="invalid-feedback">Full name is required (max 60 chars).</div>
+              {% endif %}
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label for="userUsername" class="pw-form-label">
+                Username <span class="pw-required" id="usernameRequired">*</span>
+              </label>
+              <input type="text" id="userUsername" name="username"
+                     class="form-control pw-input pw-mono {% if form_errors.username %}is-invalid{% endif %}"
+                     maxlength="20" placeholder="e.g. jdelacruz"
+                     value="{{ form_data.username or '' }}"
+                     pattern="^[a-z][a-z0-9_.]*$"
+                     required autocomplete="off"/>
+              <div class="form-text pw-form-hint" id="usernameHint">
+                3–20 chars: lowercase letters, numbers, _ or .
+              </div>
+              {% if form_errors.username %}
+                <div class="invalid-feedback d-block">{{ form_errors.username }}</div>
+              {% else %}
+                <div class="invalid-feedback">
+                  Must start with a letter (3–20 chars, lowercase, numbers, _ or .).
+                </div>
+              {% endif %}
+            </div>
+          </div>{# /row 1 #}
+
+          {# ── ROW 2: Passwords (Add mode only; hidden in Edit by JS) ── #}
+          <div class="row g-2 mb-0" id="passwordRow">
+
+            <div class="col-12 col-md-6">
+              <label for="userPassword" class="pw-form-label">
+                Password <span class="pw-required">*</span>
+              </label>
+              <div class="input-group">
+                <input type="password" id="userPassword" name="password"
+                       class="form-control pw-input {% if form_errors.password %}is-invalid{% endif %}"
+                       maxlength="64" placeholder="Min 8 characters"
+                       required autocomplete="new-password"/>
+                <button type="button" class="btn-icon border pw-show-hide-btn"
+                        data-target="userPassword" aria-label="Show/hide password">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                </button>
+                {% if form_errors.password %}
+                  <div class="invalid-feedback d-block w-100">{{ form_errors.password }}</div>
+                {% else %}
+                  <div class="invalid-feedback">Password is required.</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label for="userConfirmPassword" class="pw-form-label">
+                Confirm Password <span class="pw-required">*</span>
+              </label>
+              <div class="input-group">
+                <input type="password" id="userConfirmPassword" name="confirm_password"
+                       class="form-control pw-input"
+                       maxlength="64" placeholder="Repeat password"
+                       required autocomplete="new-password"/>
+                <button type="button" class="btn-icon border pw-show-hide-btn"
+                        data-target="userConfirmPassword" aria-label="Show/hide password">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="form-text pw-form-hint" id="confirmMatchMsg" style="display:none;"></div>
+            </div>
+
+            {#
+              Password strength checklist — one horizontal line (3 items side by side)
+              so it takes only one row of height instead of three.
+            #}
+            <div class="col-12">
+              <div class="d-flex gap-3 flex-wrap" id="pwChecklist"
+                   style="font-size:0.78rem;">
+                <span id="pwLen" class="pw-text-muted">
+                  <i class="bi bi-circle me-1" aria-hidden="true"></i>At least 8 characters
+                </span>
+                <span id="pwLet" class="pw-text-muted">
+                  <i class="bi bi-circle me-1" aria-hidden="true"></i>Contains a letter
+                </span>
+                <span id="pwNum" class="pw-text-muted">
+                  <i class="bi bi-circle me-1" aria-hidden="true"></i>Contains a number
+                </span>
+              </div>
+            </div>
+
+          </div>{# /row 2 #}
+
+          {# ── ROW 3: Role radio cards — compact ── #}
+          <div class="row g-2 mb-0 mt-2">
+            <div class="col-12">
+              <label class="pw-form-label mb-1">
+                Role <span class="pw-required">*</span>
+              </label>
+              {% if form_errors.role %}
+                <div class="invalid-feedback d-block mb-1">{{ form_errors.role }}</div>
+              {% endif %}
+              <div class="d-flex gap-2" id="roleCards">
+
+                {# Compact role card: smaller padding, single-line description #}
+                <label class="pw-user-role-card flex-grow-1 {% if form_data.get('role','administrator') == 'administrator' %}selected{% endif %}"
+                       id="roleCardAdmin" for="roleAdmin">
+                  <input type="radio" id="roleAdmin" name="role" value="administrator"
+                         class="d-none"
+                         {% if form_data.get('role', 'administrator') == 'administrator' %}checked{% endif %}/>
+                  <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>
+                  <span class="fw-semibold">Administrator</span>
+                  <span class="pw-text-muted ms-1" style="font-size:0.75rem;">
+                    — Manage devices, run scans, acknowledge findings
+                  </span>
+                </label>
+
+                <label class="pw-user-role-card flex-grow-1 {% if form_data.get('role') == 'viewer' %}selected{% endif %}"
+                       id="roleCardViewer" for="roleViewer">
+                  <input type="radio" id="roleViewer" name="role" value="viewer"
+                         class="d-none"
+                         {% if form_data.get('role') == 'viewer' %}checked{% endif %}/>
+                  <i class="bi bi-eye me-1" aria-hidden="true"></i>
+                  <span class="fw-semibold">Viewer</span>
+                  <span class="pw-text-muted ms-1" style="font-size:0.75rem;">
+                    — View results and history, export reports
+                  </span>
+                </label>
+
+              </div>
+              <div id="selfRoleWarning" class="pw-form-hint mt-1" style="display:none;">
+                <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+                You cannot change your own role or status.
+              </div>
+            </div>
+          </div>{# /row 3 #}
+
+          {# ── ROW 4: Status + Your Password (for admin grants) ── #}
+          <div class="row g-2 mt-2">
+
+            {# Status toggle #}
+            <div class="col-12 col-md-6 d-flex align-items-center gap-3 flex-wrap">
+              <label class="pw-form-label mb-0">Status</label>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input pw-toggle" type="checkbox"
+                       role="switch" id="userStatus" name="status" value="on"
+                       {% if form_data.get('status', 'active') == 'active' or not form_data %}checked{% endif %}/>
+                <label class="form-check-label pw-toggle-label" for="userStatus">Active</label>
+              </div>
+              <span class="pw-form-hint mb-0">Inactive users cannot log in.</span>
+            </div>
+
+            {#
+              "Your Password" — required when granting Administrator access.
+              Shown by JS when Admin role card is selected (Add mode) or when
+              role is being changed from Viewer → Administrator (Edit mode).
+              Hidden and cleared otherwise so it never blocks Viewer forms.
+            #}
+            <div class="col-12 col-md-6" id="adminPasswordRow" style="display:none;">
+              <label for="adminGrantPassword" class="pw-form-label">
+                Your Password <span class="pw-required">*</span>
+              </label>
+              <div class="input-group">
+                <input type="password" id="adminGrantPassword" name="admin_grant_password"
+                       class="form-control pw-input {% if form_errors.admin_grant_password %}is-invalid{% endif %}"
+                       maxlength="64" placeholder="Your current password"
+                       autocomplete="current-password"/>
+                <button type="button" class="btn-icon border pw-show-hide-btn"
+                        data-target="adminGrantPassword"
+                        aria-label="Show/hide password">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                </button>
+                {% if form_errors.admin_grant_password %}
+                  <div class="invalid-feedback d-block w-100">
+                    {{ form_errors.admin_grant_password }}
+                  </div>
+                {% else %}
+                  <div class="invalid-feedback">Your password is required to grant Administrator access.</div>
+                {% endif %}
+              </div>
+              <div class="form-text pw-form-hint">
+                Enter your own password to grant Administrator access.
+              </div>
+            </div>
+
+          </div>{# /row 4 #}
+
+        </div>{# END modal-body #}
+
+        {# ── FOOTER (compact) ── #}
+        <div class="modal-footer pw-modal-footer" style="padding:10px 18px;">
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="userFormSubmitBtn">
+            <span id="userFormBtnText">
+              <i class="bi bi-check-lg me-1" aria-hidden="true"></i>
+              Create User
+            </span>
+            <span id="userFormBtnSpinner" class="d-none">
+              <span class="spinner-border spinner-border-sm me-1"
+                    role="status" aria-hidden="true"></span>
+              Saving…
+            </span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>

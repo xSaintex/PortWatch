@@ -1,0 +1,93 @@
+{#
+  base/base_layout.html
+  The shared HTML skeleton for every PortWatch page.
+  All other templates extend this file using Jinja2's {% extends %} tag.
+
+  HOW TO USE IN A CHILD TEMPLATE:
+    {% extends "base/base_layout.html" %}
+
+    {% block title %}My Page Title{% endblock %}
+
+    {% block content %}
+      ... your page HTML here ...
+    {% endblock %}
+
+  BLOCKS AVAILABLE:
+    - title       : Text shown in the browser tab
+    - extra_head  : Extra <link> or <meta> tags for a specific page (optional)
+    - content     : The main page content
+    - extra_scripts : Page-specific <script> tags loaded just before </body>
+#}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    {# Browser tab title — child templates override the 'title' block #}
+    <title>{% block title %}PortWatch{% endblock %} — PortWatch</title>
+
+    {# Bootstrap 5 CSS — served locally #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}" />
+    {# Bootstrap Icons — served locally #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}" />
+    {# PortWatch custom theme — overrides Bootstrap and adds our colours #}
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/portwatch_theme.css') }}"
+    />
+
+    {# Optional extra head content from child templates #}
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    {# ================================================================ #}
+    {# TOP NAVIGATION BAR                                               #}
+    {# Include the reusable top navbar partial.                         #}
+    {# 'active_page' is passed from each route so the correct tab      #}
+    {# can be highlighted.                                              #}
+    {# ================================================================ #}
+    {% include "partials/top_navbar.html" %}
+
+    {# ================================================================ #}
+    {# SIDE ICON BAR                                                    #}
+    {# Include the reusable side icon bar partial.                      #}
+    {# ================================================================ #}
+    {% include "partials/side_iconbar.html" %}
+
+    {# ================================================================ #}
+    {# MAIN CONTENT AREA                                                #}
+    {# .pw-content adds the correct margins so content doesn't overlap  #}
+    {# the fixed top bar or the fixed side bar.                         #}
+    {# ================================================================ #}
+    <main class="pw-content">
+        {# Flash messages — shown at the top of every page after a form action #}
+        {% include "partials/flash_messages.html" %}
+
+        {% block content %}
+        {# Child templates put their page content here #}
+        {% endblock %}
+    </main>
+
+    {# ================================================================ #}
+    {# SCRIPTS — loaded at the end of the body for faster page load     #}
+    {# ================================================================ #}
+
+    {# Bootstrap 5 JavaScript bundle (includes Popper for tooltips) — served locally #}
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
+    {# Chart.js — served locally #}
+    <script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+
+    {# PortWatch shared JavaScript (tooltips, mobile menu) #}
+    <script src="{{ url_for('static', filename='js/base_layout.js') }}"></script>
+
+    {# PortWatch reusable pagination — available on every page #}
+    <script src="{{ url_for('static', filename='js/table_pagination.js') }}"></script>
+
+    {# Optional page-specific scripts from child templates #}
+    {% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

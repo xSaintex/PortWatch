@@ -1,0 +1,100 @@
+{#
+  partials/top_navbar.html
+  The top navigation bar, shared by both Admin and Viewer pages.
+  Included into base_layout.html.
+
+  EXPECTS from the template context:
+    active_page (string) — highlights the correct tab.
+  The current user is read from Flask-Login's current_user global.
+#}
+{% set cu = current_user %}
+<header class="pw-topbar" role="banner">
+
+    {# LEFT: Logo #}
+    {% if cu.is_authenticated and cu.role == 'viewer' %}
+      <a href="{{ url_for('viewer.dashboard') }}" class="pw-brand" aria-label="PortWatch home">
+    {% else %}
+      <a href="{{ url_for('admin.dashboard') }}" class="pw-brand" aria-label="PortWatch home">
+    {% endif %}
+        <img src="{{ url_for('static', filename='img/portwatch_logo/portwatch_logo.png') }}"
+             alt="PortWatch logo" class="pw-brand-logo" height="40"/>
+    </a>
+
+    {# MOBILE: Hamburger #}
+    <button id="pw-nav-toggler" class="pw-nav-toggler"
+            aria-label="Toggle navigation" aria-expanded="false"
+            aria-controls="pw-nav-center">
+        <i class="bi bi-list fs-5"></i>
+    </button>
+
+    {# CENTER: Navigation tabs (role-dependent) #}
+    <nav id="pw-nav-center" class="pw-nav-center" aria-label="Main navigation">
+        <ul class="pw-nav-tabs">
+
+          {% if cu.is_authenticated and cu.role == 'viewer' %}
+            {# ── Viewer tabs ── #}
+            <li>
+              <a href="{{ url_for('viewer.dashboard') }}"
+                 class="pw-nav-link {% if active_page == 'dashboard' %}active{% endif %}"
+                 {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>
+                <i class="bi bi-grid-1x2"></i> Dashboard
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('viewer.history') }}"
+                 class="pw-nav-link {% if active_page == 'history' %}active{% endif %}"
+                 {% if active_page == 'history' %}aria-current="page"{% endif %}>
+                <i class="bi bi-clock-history"></i> Scan History
+              </a>
+            </li>
+
+          {% else %}
+            {# ── Admin tabs ── #}
+            <li>
+              <a href="{{ url_for('admin.dashboard') }}"
+                 class="pw-nav-link {% if active_page == 'dashboard' %}active{% endif %}"
+                 {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>
+                <i class="bi bi-grid-1x2"></i> Dashboard
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('admin.devices') }}"
+                 class="pw-nav-link {% if active_page == 'devices' %}active{% endif %}"
+                 {% if active_page == 'devices' %}aria-current="page"{% endif %}>
+                <i class="bi bi-pc-display"></i> Device Registry
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('admin.allowlist') }}"
+                 class="pw-nav-link {% if active_page == 'allowlist' %}active{% endif %}"
+                 {% if active_page == 'allowlist' %}aria-current="page"{% endif %}>
+                <i class="bi bi-shield-check"></i> Allowlist
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('admin.scan') }}" class="pw-nav-btn"
+                 {% if active_page == 'scan' %}aria-current="page"{% endif %}>
+                <i class="bi bi-radar"></i> Run Scan
+              </a>
+            </li>
+          {% endif %}
+
+        </ul>
+    </nav>
+
+    {# RIGHT: User badge #}
+    <div class="pw-nav-user ms-auto" aria-label="User information">
+        <i class="bi bi-person-circle fs-5" aria-hidden="true"></i>
+        <span class="pw-username">
+          {{ cu.full_name if cu.is_authenticated else 'Guest' }}
+        </span>
+        {% if cu.is_authenticated %}
+          {% if cu.role == 'viewer' %}
+            <span class="pw-role-badge" style="border-color:#A6A6A6; color:#A6A6A6;">VIEWER</span>
+          {% else %}
+            <span class="pw-role-badge">ADMINISTRATOR</span>
+          {% endif %}
+        {% endif %}
+    </div>
+
+</header>

@@ -1,0 +1,300 @@
+{#
+  admin/components/admin_device_form_modal.html
+  Shared modal used for both "Add Device" and "Edit Device".
+
+  LAYOUT: Two-column Bootstrap grid (col-12 col-md-6) so all fields fit
+  on a 1366×640 laptop without scrolling. Stacks to single column below 768px.
+
+  ADD mode  — opened by the "Add Device" button (data-mode="add").
+              JS resets the form and sets the action to the add URL.
+
+  EDIT mode — opened by a row's pencil button (data-mode="edit").
+              JS prefills every field from data-* attributes on the trigger button.
+
+  SERVER-SIDE ERRORS (Add only):
+  When validation fails, admin_routes.py re-renders the page with:
+    open_device_modal (bool) — True  → JS opens the modal on page load
+    form_errors       (dict) — field name → error message
+    form_data         (dict) — the values the user originally typed
+
+  EXPECTS from template context:
+    lab_locations     (list of str) — for the Lab datalist autocomplete
+    form_errors       (dict)        — empty dict on a fresh page
+    form_data         (dict)        — empty dict on a fresh page
+    open_device_modal (bool)        — False on a fresh page
+#}
+
+<div
+  class="modal fade"
+  id="deviceFormModal"
+  tabindex="-1"
+  aria-labelledby="deviceFormModalLabel"
+  aria-hidden="true"
+>
+  {#
+    modal-lg       → ~800px wide so the two-column layout has room
+    modal-dialog-centered    → vertically centred on screen
+    modal-dialog-scrollable  → header + footer stay fixed; only body scrolls
+                               This ensures Cancel/Save are never cut off.
+  #}
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content pw-modal-content">
+
+      {# ============================================================ #}
+      {# HEADER — compact padding so body has more room               #}
+      {# ============================================================ #}
+      <div class="modal-header pw-modal-header pw-modal-header-compact">
+        <div class="d-flex align-items-center gap-2 flex-grow-1">
+          <i class="bi bi-pc-display pw-modal-title-icon" aria-hidden="true"></i>
+          <div>
+            <h5 class="modal-title mb-0" id="deviceFormModalLabel">Add Device</h5>
+            <p class="pw-modal-subtitle mb-0" id="deviceFormSubtitle">
+              Register a lab device so PortWatch is authorized to scan it.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="pw-modal-close ms-2"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      {# ============================================================ #}
+      {# FORM                                                          #}
+      {# ============================================================ #}
+      <form
+        id="deviceForm"
+        method="POST"
+        action="{{ url_for('admin.devices_add') }}"
+        novalidate
+      >
+        <div class="modal-body pw-modal-body pw-modal-body-compact">
+
+          {# -------------------------------------------------------- #}
+          {# ROW 1: Device Name (left) | IP Address (right)           #}
+          {# -------------------------------------------------------- #}
+          <div class="row g-3 mb-0">
+
+            {# Device Name #}
+            <div class="col-12 col-md-6">
+              <label for="deviceName" class="pw-form-label">
+                Device Name <span class="pw-required">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control pw-input {% if form_errors.name %}is-invalid{% endif %}"
+                id="deviceName"
+                name="name"
+                maxlength="50"
+                placeholder="e.g. LAB1-PC09"
+                value="{{ form_data.name or '' }}"
+                required
+                autocomplete="off"
+              />
+              <div class="form-text pw-form-hint">LAB#-PC## or LAB#-SERVER##</div>
+              {% if form_errors.name %}
+                <div class="invalid-feedback d-block">{{ form_errors.name }}</div>
+              {% else %}
+                <div class="invalid-feedback">Device name is required (max 50 chars).</div>
+              {% endif %}
+            </div>
+
+            {# IP Address #}
+            <div class="col-12 col-md-6">
+              <label for="deviceIp" class="pw-form-label">
+                IP Address <span class="pw-required">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control pw-input pw-mono {% if form_errors.ip_address %}is-invalid{% endif %}"
+                id="deviceIp"
+                name="ip_address"
+                placeholder="e.g. 192.168.10.29"
+                value="{{ form_data.ip_address or '' }}"
+                pattern="^(\d{1,3}\.){3}\d{1,3}$"
+                required
+                autocomplete="off"
+              />
+              <div class="form-text pw-form-hint">Private address only (192.168.x.x, 10.x.x.x)</div>
+              {% if form_errors.ip_address %}
+                <div class="invalid-feedback d-block">{{ form_errors.ip_address }}</div>
+              {% else %}
+                <div class="invalid-feedback">Enter a valid IPv4 address.</div>
+              {% endif %}
+            </div>
+
+          </div>{# /row 1 #}
+
+          {# -------------------------------------------------------- #}
+          {# ROW 2: Lab / Location (left) | Device Type (right)       #}
+          {# -------------------------------------------------------- #}
+          <div class="row g-3 mb-0 mt-1">
+
+            {# Lab / Location #}
+            <div class="col-12 col-md-6">
+              <label for="deviceLab" class="pw-form-label">
+                Lab / Location <span class="pw-required">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control pw-input {% if form_errors.lab_location %}is-invalid{% endif %}"
+                id="deviceLab"
+                name="lab_location"
+                list="labLocationOptions"
+                placeholder="e.g. Computer Lab 1"
+                value="{{ form_data.lab_location or '' }}"
+                required
+              />
+              {# datalist provides autocomplete from existing labs #}
+              <datalist id="labLocationOptions">
+                {% for loc in lab_locations %}
+                  <option value="{{ loc }}">
+                {% endfor %}
+              </datalist>
+              {% if form_errors.lab_location %}
+                <div class="invalid-feedback d-block">{{ form_errors.lab_location }}</div>
+              {% else %}
+                <div class="invalid-feedback">Lab / Location is required.</div>
+              {% endif %}
+            </div>
+
+            {# Device Type #}
+            <div class="col-12 col-md-6">
+              <label for="deviceType" class="pw-form-label">
+                Device Type <span class="pw-required">*</span>
+              </label>
+              <select
+                class="form-select pw-input {% if form_errors.device_type %}is-invalid{% endif %}"
+                id="deviceType"
+                name="device_type"
+                required
+              >
+                <option value="" disabled {% if not form_data.device_type %}selected{% endif %}>
+                  Select device type
+                </option>
+                {% for t in ["Workstation", "Server", "Network Device", "Other"] %}
+                  <option
+                    value="{{ t }}"
+                    {% if form_data.device_type == t %}selected{% endif %}
+                  >{{ t }}</option>
+                {% endfor %}
+              </select>
+              {% if form_errors.device_type %}
+                <div class="invalid-feedback d-block">{{ form_errors.device_type }}</div>
+              {% else %}
+                <div class="invalid-feedback">Please select a device type.</div>
+              {% endif %}
+            </div>
+
+          </div>{# /row 2 #}
+
+          {# -------------------------------------------------------- #}
+          {# ROW 3: Status toggle (left) | Allowlist info box (right) #}
+          {# -------------------------------------------------------- #}
+          <div class="row g-3 mb-0 mt-1">
+
+            {# Status toggle #}
+            <div class="col-12 col-md-6 d-flex flex-column justify-content-start">
+              <label class="pw-form-label">Status</label>
+              <div class="form-check form-switch mb-1 mt-1">
+                <input
+                  class="form-check-input pw-toggle"
+                  type="checkbox"
+                  role="switch"
+                  id="deviceStatus"
+                  name="status"
+                  value="on"
+                  {% if form_data and form_data.get("status", "active") == "active" %}checked
+                  {% elif not form_data %}checked{% endif %}
+                />
+                <label class="form-check-label pw-toggle-label" for="deviceStatus">
+                  Active
+                </label>
+              </div>
+              <div class="form-text pw-form-hint">
+                Inactive devices stay registered but cannot be scanned.
+              </div>
+            </div>
+
+            {# Allowlist info box — right column, vertically aligned with toggle #}
+            <div class="col-12 col-md-6 d-flex align-items-start">
+              <div class="pw-modal-info-box w-100">
+                <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+                After saving, set up this device's allowlist so PortWatch knows
+                which ports are approved. Until then, every open port will be
+                flagged as <strong>Unexpected</strong>.
+              </div>
+            </div>
+
+          </div>{# /row 3 #}
+
+          {# -------------------------------------------------------- #}
+          {# ROW 4: Notes — full width                                #}
+          {# -------------------------------------------------------- #}
+          <div class="row g-3 mt-1">
+
+            <div class="col-12">
+              <label for="deviceNotes" class="pw-form-label">
+                Notes <span class="pw-text-muted">(optional)</span>
+              </label>
+              <textarea
+                class="form-control pw-input {% if form_errors.notes %}is-invalid{% endif %}"
+                id="deviceNotes"
+                name="notes"
+                rows="3"
+                maxlength="200"
+                placeholder="e.g. Instructor PC, has file sharing enabled for class"
+              >{{ form_data.notes or '' }}</textarea>
+              {% if form_errors.notes %}
+                <div class="invalid-feedback d-block">{{ form_errors.notes }}</div>
+              {% endif %}
+              {# Character counter — right-aligned below the textarea #}
+              <div class="form-text pw-form-hint text-end">
+                <span id="notesCounter">{{ (form_data.notes or '') | length }}</span> / 200
+              </div>
+            </div>
+
+          </div>{# /row 4 #}
+
+        </div>
+        {# END modal-body #}
+
+        {# ============================================================ #}
+        {# FOOTER — always visible because modal-dialog-scrollable      #}
+        {# keeps the footer outside the scrollable body area.           #}
+        {# ============================================================ #}
+        <div class="modal-footer pw-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          {# Submit button — JS swaps text for spinner on submit #}
+          <button
+            type="submit"
+            class="btn btn-primary"
+            id="deviceFormSubmitBtn"
+          >
+            <span id="deviceFormBtnText">
+              <i class="bi bi-check-lg me-1" aria-hidden="true"></i>
+              Save Device
+            </span>
+            {# Spinner: hidden by default, shown by JS on submit #}
+            <span id="deviceFormBtnSpinner" class="d-none">
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              Saving…
+            </span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+</div>

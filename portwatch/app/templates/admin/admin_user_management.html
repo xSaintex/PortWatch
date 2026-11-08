@@ -1,0 +1,322 @@
+{#
+  admin/admin_user_management.html
+  User Management page — create and manage PortWatch user accounts.
+  Extends base_layout.html, active_page="users".
+
+  EXPECTS from template context:
+    users        — list of user dicts (newest first)
+    current_user — the logged-in user dict (id=1 placeholder)
+    open_modal   — "add", "edit", "reset", or None
+    form_errors  — dict field→message
+    form_data    — dict of previously typed values (never contains passwords)
+    new_user_id  — int or None (highlights the just-added user row)
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+
+{# ================================================================== #}
+{# HEADER                                                              #}
+{# ================================================================== #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="pw-page-title">User Management</h1>
+    <p class="pw-page-subtitle mb-0">
+      Manage who can access PortWatch and what they are allowed to do.
+    </p>
+  </div>
+  <button class="btn btn-primary"
+          data-bs-toggle="modal"
+          data-bs-target="#userFormModal"
+          data-mode="add"
+          aria-label="Add a new user">
+    <i class="bi bi-person-plus me-1" aria-hidden="true"></i>
+    Add User
+  </button>
+</div>
+
+
+{# ================================================================== #}
+{# FILTER BAR                                                          #}
+{# ================================================================== #}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-center">
+
+      {# Search by name or username #}
+      <div class="col-12 col-md-4">
+        <div class="pw-search-wrap">
+          <i class="bi bi-search pw-search-icon" aria-hidden="true"></i>
+          <input type="text" id="userSearch"
+                 class="form-control pw-input pw-search-input"
+                 placeholder="Search by name or username…"
+                 aria-label="Search users">
+        </div>
+      </div>
+
+      {# Role filter #}
+      <div class="col-6 col-md-2">
+        <select id="filterRole" class="form-select pw-input" aria-label="Filter by role">
+          <option value="">All roles</option>
+          <option value="administrator">Administrator</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </div>
+
+      {# Status filter #}
+      <div class="col-6 col-md-2">
+        <select id="filterStatus" class="form-select pw-input" aria-label="Filter by status">
+          <option value="">All status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+
+      {# Clear filters #}
+      <div class="col-12 col-md-4 d-flex align-items-center justify-content-md-end">
+        <button type="button" id="clearFilters" class="pw-clear-btn">
+          Clear filters
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{# ================================================================== #}
+{# USERS TABLE                                                         #}
+{# ================================================================== #}
+{% if users %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-compact mb-0" id="usersTable">
+        <thead>
+          <tr>
+            <th scope="col">User</th>
+            <th scope="col">Role</th>
+            <th scope="col">Status</th>
+            <th scope="col">Last Login</th>
+            <th scope="col">Created</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody">
+          {% for u in users %}
+          {% set is_self = (current_user and u.id == current_user.id) %}
+          <tr
+            class="pw-user-row {% if u.status == 'inactive' %}pw-row-inactive{% endif %}{% if new_user_id and u.id == new_user_id %} row-new-device{% endif %}"
+            data-user-id="{{ u.id }}"
+            data-name="{{ u.full_name | lower }}"
+            data-username="{{ u.username | lower }}"
+            data-role="{{ u.role }}"
+            data-status="{{ u.status }}"
+          >
+
+            {# User: full name + @username + "You" badge #}
+            <td>
+              <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
+                {{ u.full_name }}
+                {% if new_user_id and u.id == new_user_id %}
+                  <span class="badge-new-device ms-1">NEW</span>
+                {% endif %}
+                {% if is_self %}
+                  <span class="pw-you-badge">You</span>
+                {% endif %}
+              </div>
+              <div class="pw-mono pw-text-muted" style="font-size:0.78rem;">
+                @{{ u.username }}
+                {% if u.must_change_password %}
+                  <span class="ms-1"
+                        data-bs-toggle="tooltip"
+                        title="Must change password at next login"
+                        style="color:var(--pw-yellow);">
+                    <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+                  </span>
+                {% endif %}
+              </div>
+            </td>
+
+            {# Role badge #}
+            <td>
+              {% if u.role == 'administrator' %}
+                <span class="pw-badge-role-admin">Administrator</span>
+              {% else %}
+                <span class="pw-badge-role-viewer">Viewer</span>
+              {% endif %}
+            </td>
+
+            {# Status #}
+            <td>
+              {% if u.status == 'active' %}
+                <span class="pw-status-active">
+                  <span class="pw-status-dot" aria-hidden="true"></span>Active
+                </span>
+              {% else %}
+                <span class="pw-status-inactive">Inactive</span>
+              {% endif %}
+            </td>
+
+            {# Last Login #}
+            <td class="small">
+              {% if u.last_login %}
+                {{ u.last_login.strftime("%d %b %Y, %H:%M") }}
+              {% else %}
+                <span class="pw-text-muted">Never</span>
+              {% endif %}
+            </td>
+
+            {# Created #}
+            <td class="small pw-text-muted">
+              {{ u.created_at.strftime("%d %b %Y") if u.created_at else '—' }}
+            </td>
+
+            {# Actions #}
+            <td>
+              <div class="d-flex gap-1">
+
+                {# Edit button #}
+                <button class="btn-icon"
+                        data-bs-toggle="modal"
+                        data-bs-target="#userFormModal"
+                        data-mode="edit"
+                        data-user-id="{{ u.id }}"
+                        data-user-full-name="{{ u.full_name | e }}"
+                        data-user-username="{{ u.username }}"
+                        data-user-role="{{ u.role }}"
+                        data-user-status="{{ u.status }}"
+                        data-is-self="{{ 'true' if is_self else 'false' }}"
+                        data-edit-url="{{ url_for('admin.users_edit', user_id=u.id) }}"
+                        data-bs-placement="top"
+                        title="Edit user"
+                        aria-label="Edit @{{ u.username }}">
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+
+                {# Reset Password button #}
+                <button class="btn-icon"
+                        data-bs-toggle="modal"
+                        data-bs-target="#resetPasswordModal"
+                        data-user-id="{{ u.id }}"
+                        data-user-full-name="{{ u.full_name | e }}"
+                        data-user-username="{{ u.username }}"
+                        data-reset-url="{{ url_for('admin.users_reset_password', user_id=u.id) }}"
+                        data-bs-placement="top"
+                        title="Reset password"
+                        aria-label="Reset password for @{{ u.username }}">
+                  <i class="bi bi-key" aria-hidden="true"></i>
+                </button>
+
+                {# Toggle status — disabled for self; otherwise opens confirmation modal #}
+                {% if is_self %}
+                  <button class="btn-icon" disabled
+                          data-bs-toggle="tooltip"
+                          data-bs-placement="top"
+                          title="You cannot deactivate your own account"
+                          aria-label="Cannot deactivate own account">
+                    <i class="bi bi-toggle-{{ 'on' if u.status == 'active' else 'off' }}"
+                       aria-hidden="true"></i>
+                  </button>
+                {% else %}
+                  {#
+                    Opens the confirmation modal; the modal form POSTs to the
+                    toggle-status route when the user confirms.
+                  #}
+                  <button class="btn-icon"
+                          data-bs-toggle="modal"
+                          data-bs-target="#userStatusModal"
+                          data-user-full-name="{{ u.full_name | e }}"
+                          data-user-username="{{ u.username }}"
+                          data-user-status="{{ u.status }}"
+                          data-user-role="{{ u.role }}"
+                          data-toggle-url="{{ url_for('admin.users_toggle_status', user_id=u.id) }}"
+                          data-bs-placement="top"
+                          title="{{ 'Deactivate' if u.status == 'active' else 'Activate' }}"
+                          aria-label="{{ 'Deactivate' if u.status == 'active' else 'Activate' }} @{{ u.username }}">
+                    <i class="bi bi-toggle-{{ 'on' if u.status == 'active' else 'off' }}"
+                       aria-hidden="true"></i>
+                  </button>
+                {% endif %}
+
+                {# Delete button — disabled for self #}
+                {% if is_self %}
+                  <button class="btn-icon" disabled
+                          data-bs-toggle="tooltip"
+                          data-bs-placement="top"
+                          title="You cannot delete your own account"
+                          aria-label="Cannot delete own account">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                  </button>
+                {% else %}
+                  <button class="btn-icon btn-icon-danger"
+                          data-bs-toggle="modal"
+                          data-bs-target="#deleteUserModal"
+                          data-user-id="{{ u.id }}"
+                          data-user-full-name="{{ u.full_name | e }}"
+                          data-user-username="{{ u.username }}"
+                          data-delete-url="{{ url_for('admin.users_delete', user_id=u.id) }}"
+                          data-bs-placement="top"
+                          title="Delete user"
+                          aria-label="Delete @{{ u.username }}">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                  </button>
+                {% endif %}
+
+              </div>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# No-filter-match empty state (shown by JS) #}
+<div id="noFilterResults" class="pw-empty-state mt-3" style="display:none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No users match your filters.</p>
+  <button type="button" id="clearFilters2"
+          class="btn btn-outline-secondary btn-sm">Clear filters</button>
+</div>
+
+{# Pagination mount point — 8 users per page #}
+<div id="usersPagination" class="pw-pagination-wrap mt-3"></div>
+
+{% else %}
+{# No users at all (should not happen with seeded data) #}
+<div class="pw-empty-state">
+  <i class="bi bi-people pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No users yet.</p>
+</div>
+{% endif %}
+
+
+{# ================================================================== #}
+{# MODALS                                                              #}
+{# ================================================================== #}
+{% include "admin/components/admin_user_form_modal.html" %}
+{% include "admin/components/admin_user_reset_password_modal.html" %}
+{% include "admin/components/admin_user_delete_modal.html" %}
+{% include "admin/components/admin_user_status_modal.html" %}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  window.userMgmtData = {
+    newUserId:        {{ new_user_id | tojson }},
+    openModal:        {{ open_modal | tojson }},
+    editingUserId:    {{ form_data.edit_user_id | tojson if form_data and form_data.edit_user_id else 'null' }},
+    resetUserId:      {{ form_data.reset_user_id | tojson if form_data and form_data.reset_user_id else 'null' }},
+    currentUserId:    {{ current_user.id | tojson if current_user else 'null' }},
+    addUserUrl:       "{{ url_for('admin.users_add') }}",
+  };
+</script>
+<script src="{{ url_for('static', filename='js/admin_user_management.js') }}"></script>
+{% endblock %}

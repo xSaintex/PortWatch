@@ -1,0 +1,25 @@
+<!-- portwatch_logo_placeholder.svg -->
+<!-- Simple red shield logo for PortWatch. This is a placeholder and will be
+     replaced with the real logo artwork later. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 48" width="40" height="48" aria-label="PortWatch logo">
+  <!-- Shield outline filled with the primary red colour -->
+  <path
+    d="M20 2 L38 9 L38 24 C38 34 30 42 20 46 C10 42 2 34 2 24 L2 9 Z"
+    fill="#B01B26"
+    stroke="#8E1520"
+    stroke-width="1.5"
+  />
+  <!-- Simple network/port icon inside the shield (white) -->
+  <!-- Horizontal line -->
+  <line x1="11" y1="24" x2="29" y2="24" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <!-- Left node -->
+  <circle cx="11" cy="24" r="3" fill="#FFFFFF"/>
+  <!-- Center node -->
+  <circle cx="20" cy="24" r="3" fill="#FFFFFF"/>
+  <!-- Right node -->
+  <circle cx="29" cy="24" r="3" fill="#FFFFFF"/>
+  <!-- Vertical tick up from center -->
+  <line x1="20" y1="17" x2="20" y2="21" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <!-- Top node -->
+  <circle cx="20" cy="15" r="3" fill="#FFFFFF"/>
+</svg>

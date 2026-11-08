@@ -1,0 +1,414 @@
+{#
+  admin/admin_run_scan.html
+  Run Scan page — lets the admin select devices and start a port scan.
+  Extends base_layout.html.
+
+  EXPECTS from template context:
+    all_devices        — list of all device dicts
+    active_count       — int: number of active devices
+    no_allowlist_count — int: active devices with 0 allowlist entries
+    preselected_device — device dict or None (from ?device_id= query param)
+    recent_scans       — list of the 5 most recent scan records
+    running_job        — running job dict or None
+    form_errors        — dict field→message (empty on fresh load)
+    form_data          — dict of previously typed values (empty on fresh load)
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}Run Scan{% endblock %}
+
+{% block content %}
+
+{# ================================================================== #}
+{# PAGE HEADER                                                         #}
+{# ================================================================== #}
+<div class="mb-3">
+  <h1 class="pw-page-title">Run Scan</h1>
+  <p class="pw-page-subtitle mb-0">
+    Scan authorized lab devices for open ports and compare them with their allowlists.
+  </p>
+</div>
+
+{# Banner: another scan is running #}
+{% if running_job %}
+<div class="pw-allowlist-warn-bar mb-3 d-flex align-items-center gap-2">
+  <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+  <span>A scan is currently in progress.</span>
+  <a href="{{ url_for('admin.scan_progress', job_id=running_job.job_id) }}"
+     class="ms-1 fw-bold">View progress →</a>
+</div>
+{% endif %}
+
+{# General form error #}
+{% if form_errors.general %}
+<div class="pw-allowlist-warn-bar mb-3">
+  <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+  {{ form_errors.general }}
+</div>
+{% endif %}
+
+{# ================================================================== #}
+{# TWO-COLUMN LAYOUT                                                   #}
+{# 60% form | 40% sidebar — stacks on mobile                          #}
+{# ================================================================== #}
+<div class="row g-3">
+
+  {# ============================================================ #}
+  {# LEFT: Scan Setup Form                                        #}
+  {# ============================================================ #}
+  <div class="col-12 col-lg-7">
+    <form method="POST" action="{{ url_for('admin.scan_start') }}"
+          id="scanForm" novalidate>
+
+      {# ---- SECTION 1: Target --------------------------------- #}
+      <div class="card mb-3">
+        <div class="card-header">Target</div>
+        <div class="card-body">
+
+          {# Target mode radio cards #}
+          <div class="d-flex gap-3 flex-wrap mb-3" id="targetModeCards">
+
+            <label class="pw-scan-radio-card {% if form_data.get('target_mode','single')=='single' %}selected{% endif %}"
+                   id="card-single" for="mode-single">
+              <input type="radio" id="mode-single" name="target_mode"
+                     value="single" class="d-none"
+                     {% if form_data.get('target_mode','single')=='single' %}checked{% endif %}>
+              <i class="bi bi-pc-display fs-4 mb-1" aria-hidden="true"></i>
+              <div class="fw-semibold">Single device</div>
+              <div class="pw-text-muted" style="font-size:0.78rem;">Choose one device</div>
+            </label>
+
+            <label class="pw-scan-radio-card {% if form_data.get('target_mode')=='all' %}selected{% endif %}"
+                   id="card-all" for="mode-all">
+              <input type="radio" id="mode-all" name="target_mode"
+                     value="all" class="d-none"
+                     {% if form_data.get('target_mode')=='all' %}checked{% endif %}>
+              <i class="bi bi-hdd-network fs-4 mb-1" aria-hidden="true"></i>
+              <div class="fw-semibold">All active devices</div>
+              <div class="pw-text-muted" style="font-size:0.78rem;">{{ active_count }} active devices</div>
+            </label>
+
+          </div>
+
+          {# Target mode error #}
+          {% if form_errors.target_mode %}
+            <div class="pw-flash pw-flash-error mb-3 py-2">
+              <i class="bi bi-x-circle-fill pw-flash-icon"></i>
+              <span>{{ form_errors.target_mode }}</span>
+            </div>
+          {% endif %}
+
+          {# Single device selector (hidden when "all" chosen) #}
+          <div id="singleDeviceSection">
+            <label for="deviceSelect" class="pw-form-label">
+              Device <span class="pw-required">*</span>
+            </label>
+            <select id="deviceSelect" name="device_id"
+                    class="form-select pw-input mb-2 {% if form_errors.device_id %}is-invalid{% endif %}">
+              <option value="" disabled {% if not (form_data.device_id or preselected_device) %}selected{% endif %}>
+                Select a device…
+              </option>
+              {# Group by lab using optgroup #}
+              {% set labs_seen = namespace(val=[]) %}
+              {% for d in all_devices %}
+                {% if d.lab_location not in labs_seen.val %}
+                  {% if labs_seen.val %}</optgroup>{% endif %}
+                  <optgroup label="{{ d.lab_location }}">
+                  {% set _ = labs_seen.val.append(d.lab_location) %}
+                {% endif %}
+                <option value="{{ d.id }}"
+                  {% if d.status == 'inactive' %}disabled{% endif %}
+                  {% if (form_data.device_id and d.id == form_data.device_id)
+                     or (preselected_device and d.id == preselected_device.id) %}selected{% endif %}>
+                  {{ d.name }} — {{ d.ip_address }}{% if d.status == 'inactive' %} (inactive){% endif %}
+                </option>
+              {% endfor %}
+              </optgroup>
+            </select>
+            {% if form_errors.device_id %}
+              <div class="invalid-feedback d-block">{{ form_errors.device_id }}</div>
+            {% endif %}
+
+            {# Device preview panel — updated by JS #}
+            <div id="devicePreview" class="pw-scan-device-preview"
+                 style="display:none;">
+              <div class="d-flex flex-wrap gap-3">
+                <div><span class="pw-text-muted small">IP</span><br>
+                  <span id="prevIp" class="pw-mono fw-bold"></span></div>
+                <div><span class="pw-text-muted small">Lab</span><br>
+                  <span id="prevLab"></span></div>
+                <div><span class="pw-text-muted small">Type</span><br>
+                  <span id="prevType"></span></div>
+                <div><span class="pw-text-muted small">Allowlist</span><br>
+                  <span id="prevAllowlist"></span></div>
+                <div><span class="pw-text-muted small">Last scan</span><br>
+                  <span id="prevLastScan"></span></div>
+              </div>
+              {# No-allowlist warning #}
+              <div id="noAllowlistWarn" class="pw-allowlist-warn-bar mt-2"
+                   style="display:none; background:rgba(255,194,14,0.1);
+                          border-color:var(--pw-yellow);">
+                <i class="bi bi-exclamation-triangle-fill me-2"
+                   style="color:var(--pw-yellow);" aria-hidden="true"></i>
+                This device has no allowlist yet. Every open port will be
+                flagged as Unexpected.
+                <a href="{{ url_for('admin.allowlist') }}"
+                   id="noAllowlistLink" class="ms-1 fw-bold"
+                   style="color:var(--pw-yellow);">Set up allowlist →</a>
+              </div>
+            </div>
+          </div>
+
+          {# All-devices: no-allowlist warning line (shown by JS) #}
+          <div id="allDevicesSection" style="display:none;">
+            {% if no_allowlist_count > 0 %}
+            <div class="pw-allowlist-warn-bar"
+                 style="background:rgba(255,194,14,0.1); border-color:var(--pw-yellow);">
+              <i class="bi bi-exclamation-triangle-fill me-2"
+                 style="color:var(--pw-yellow);" aria-hidden="true"></i>
+              <span style="color:var(--pw-yellow);">
+                {{ no_allowlist_count }}
+                device{{ "s have" if no_allowlist_count != 1 else " has" }}
+                no allowlist set up.
+              </span>
+              Open ports on those devices will all be flagged as Unexpected.
+            </div>
+            {% else %}
+            <p class="pw-text-muted small mb-0">All active devices have at least one allowlist entry.</p>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+
+      {# ---- SECTION 2: Port Range ----------------------------- #}
+      <div class="card mb-3">
+        <div class="card-header">Port Range</div>
+        <div class="card-body">
+
+          <div class="d-flex flex-column gap-2">
+            <label class="d-flex align-items-center gap-2 pw-scan-radio-inline">
+              <input type="radio" name="port_mode" value="top1000"
+                     {% if form_data.get('port_mode','top1000') == 'top1000' %}checked{% endif %}
+                     id="portTop">
+              <span>Top 1,000 TCP ports <span class="pw-text-muted small">(recommended)</span></span>
+            </label>
+            <label class="d-flex align-items-center gap-2 pw-scan-radio-inline">
+              <input type="radio" name="port_mode" value="custom"
+                     {% if form_data.get('port_mode') == 'custom' %}checked{% endif %}
+                     id="portCustom">
+              <span>Custom range</span>
+            </label>
+          </div>
+
+          <div id="customPortSection" class="mt-2"
+               style="{% if form_data.get('port_mode') != 'custom' %}display:none;{% endif %}">
+            <input type="text"
+                   id="customPorts" name="custom_ports"
+                   class="form-control pw-input pw-mono {% if form_errors.custom_ports %}is-invalid{% endif %}"
+                   placeholder="e.g. 1-1024 or 22,80,443,3389"
+                   value="{{ form_data.custom_ports or '' }}"
+                   maxlength="100">
+            <div class="form-text pw-form-hint">
+              Ports 1–65535. Use commas and ranges (e.g. 22,80,443 or 1-1024).
+            </div>
+            {% if form_errors.custom_ports %}
+              <div class="invalid-feedback d-block">{{ form_errors.custom_ports }}</div>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+
+      {# ---- SECTION 3: Scan Options --------------------------- #}
+      <div class="card mb-3">
+        <div class="card-header">Scan Options</div>
+        <div class="card-body">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox"
+                   id="optSV" checked disabled>
+            <label class="form-check-label" for="optSV">
+              Service and version detection
+              <code class="pw-scan-flag">-sV</code>
+            </label>
+          </div>
+          <div class="form-text pw-form-hint mt-1">
+            Required so detected services can be compared with the allowlist.
+          </div>
+        </div>
+      </div>
+
+      {# ---- SECTION 4: Authorization Confirmation ------------- #}
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="form-check">
+            <input class="form-check-input {% if form_errors.confirmed %}is-invalid{% endif %}"
+                   type="checkbox" id="confirmed" name="confirmed" value="1"
+                   {% if form_data.get('confirmed') %}checked{% endif %}>
+            <label class="form-check-label" for="confirmed">
+              I confirm these devices are authorized lab devices and this scan
+              is permitted by the IT Department.
+            </label>
+            {% if form_errors.confirmed %}
+              <div class="invalid-feedback d-block">{{ form_errors.confirmed }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# ---- Form footer --------------------------------------- #}
+      <div class="d-flex gap-3 align-items-center">
+        <button type="submit" id="startScanBtn"
+                class="btn btn-primary"
+                {% if running_job %}disabled{% endif %}>
+          <span id="startBtnText">
+            <i class="bi bi-radar me-1" aria-hidden="true"></i>
+            Start Scan
+          </span>
+          <span id="startBtnSpinner" class="d-none">
+            <span class="spinner-border spinner-border-sm me-1"
+                  role="status" aria-hidden="true"></span>
+            Starting…
+          </span>
+        </button>
+        <button type="reset" class="btn btn-outline-secondary">
+          Reset
+        </button>
+      </div>
+
+    </form>
+  </div>{# end LEFT column #}
+
+
+  {# ============================================================ #}
+  {# RIGHT: Preview + Recent Scans + Dev Test                     #}
+  {# ============================================================ #}
+  <div class="col-12 col-lg-5 d-flex flex-column gap-3">
+
+    {# ---- Card 1: Scan Preview -------------------------------- #}
+    <div class="card">
+      <div class="card-header">Scan Preview</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0 pw-scan-preview-table">
+          <tbody>
+            <tr>
+              <td class="pw-text-muted" style="width:40%;">Target</td>
+              <td id="prevTarget">—</td>
+            </tr>
+            <tr>
+              <td class="pw-text-muted">Ports</td>
+              <td id="prevPorts">Top 1,000 TCP</td>
+            </tr>
+            <tr>
+              <td class="pw-text-muted">Est. time</td>
+              <td id="prevTime">—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {# Nmap command block #}
+        <div class="mt-3">
+          <div class="pw-text-muted small mb-1">Nmap command</div>
+          <div class="pw-scan-cmd-block">
+            <code id="nmapCmd" class="pw-mono">—</code>
+            <button type="button" class="pw-scan-cmd-copy btn-icon ms-2"
+                    id="copyNmapBtn"
+                    data-bs-toggle="tooltip" title="Copy command"
+                    aria-label="Copy Nmap command">
+              <i class="bi bi-clipboard" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="form-text pw-form-hint mt-1">
+            PortWatch runs this command for you.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ---- Card 2: Recent Scans -------------------------------- #}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Recent Scans</span>
+        <a href="{{ url_for('admin.history') }}"
+           class="small pw-text-muted">View all →</a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_scans %}
+        <table class="table table-hover table-compact mb-0">
+          <tbody>
+            {% for s in recent_scans %}
+            <tr>
+              <td>
+                <div class="fw-semibold small">{{ s.device_name }}</div>
+                <div class="pw-text-muted" style="font-size:0.75rem;">
+                  {{ s.started_at.strftime("%d %b %Y, %H:%M") }}
+                </div>
+              </td>
+              <td>
+                {% set risk = s.summary.highest_risk if s.summary else 'None' %}
+                {% if risk == "High" %}
+                  <span class="badge-risk-high">High</span>
+                {% elif risk == "Medium" %}
+                  <span class="badge-risk-medium">Medium</span>
+                {% elif risk == "Low" %}
+                  <span class="badge-risk-low">Low</span>
+                {% else %}
+                  <span class="badge-risk-none">None</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{{ url_for('admin.scan_results', scan_id=s.id) }}"
+                   class="btn-icon"
+                   data-bs-toggle="tooltip" title="View results"
+                   aria-label="View scan {{ s.id }}">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+          <p class="pw-text-muted small p-3 mb-0">No scans yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ---- Card 3: Developer Test (debug only) ----------------- #}
+    {% if config.DEBUG %}
+    <div class="card pw-scan-dev-card">
+      <div class="card-header pw-text-muted small">Developer Test</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('admin.scan_test_blocked') }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-shield-x me-1" aria-hidden="true"></i>
+            Test blocked scan
+          </button>
+        </form>
+        <p class="pw-text-muted mt-2 mb-0" style="font-size:0.78rem;">
+          Simulates a scan request to an unregistered public IP (8.8.8.8)
+          to demonstrate that it is blocked and logged. Hidden in production.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>{# end RIGHT column #}
+
+</div>{# end row #}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+{# Pass device data to JS so the preview panel updates without a server round-trip #}
+<script>
+  window.scanPageData = {
+    devices: {{ all_devices | tojson }},
+    activeCount: {{ active_count }},
+    mockDuration: {{ config.MOCK_SCAN_DURATION_SECONDS }},
+    preselectedId: {{ preselected_device.id | tojson if preselected_device else 'null' }},
+    allowlistUrl: "{{ url_for('admin.allowlist') }}",
+  };
+</script>
+<script src="{{ url_for('static', filename='js/admin_run_scan.js') }}"></script>
+{% endblock %}

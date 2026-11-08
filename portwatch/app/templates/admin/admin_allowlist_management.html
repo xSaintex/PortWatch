@@ -1,0 +1,497 @@
+{#
+  admin/admin_allowlist_management.html
+  Allowlist Management page — view and edit a device's approved ports.
+  Extends base_layout.html.
+
+  STATES:
+    device is None  → Overview: table of all devices with entry counts
+    device is set   → Manage: that device's allowlist entries
+
+  EXPECTS from template context:
+    device           — selected device dict, or None (overview)
+    entries          — list of entry dicts for the selected device
+    entry_count      — int
+    required_count   — int (expected_open entries)
+    risky_count      — int (entries whose port is flagged risky)
+    all_devices      — full device list (for the selector dropdown)
+    labs_grouped     — dict lab_name → [devices] (for <optgroup>)
+    overview_rows    — sorted device list for overview table (only when device=None)
+    required_counts  — dict device_id→int (only when device=None)
+    new_entry_id     — int or None (highlights the just-added row)
+    open_entry_modal — True when re-rendering after a validation error
+    open_delete_modal, open_copy_modal — True for their respective re-renders
+    form_errors      — dict field→message
+    form_data        — dict of typed values
+    port_reference   — dict from port_reference.py (passed to JS via tojson)
+    entries_by_device— dict device_id→[entries] (for Copy modal preview)
+#}
+{% extends "base/base_layout.html" %}
+
+{% block title %}Allowlist Management{% endblock %}
+
+
+{% block content %}
+
+{# ================================================================== #}
+{# PAGE HEADER                                                         #}
+{# ================================================================== #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+  <div>
+    <h1 class="pw-page-title">Allowlist Management</h1>
+    <p class="pw-page-subtitle mb-0">
+      Approved ports and services for each authorized device.
+      Open ports not on this list will be flagged as Unexpected.
+    </p>
+  </div>
+
+  {# Device selector — choosing a device navigates to ?device_id=<id> #}
+  <form method="GET" action="{{ url_for('admin.allowlist') }}"
+        class="d-flex align-items-center gap-2">
+    <select
+      name="device_id"
+      id="deviceSelector"
+      class="form-select pw-input pw-device-selector"
+      aria-label="Select a device"
+      onchange="this.form.submit()"
+    >
+      <option value="" {% if not device %}selected{% endif %} disabled>
+        Select a device…
+      </option>
+      {% for lab_name, lab_devices in labs_grouped.items() %}
+        <optgroup label="{{ lab_name }}">
+          {% for d in lab_devices %}
+            <option
+              value="{{ d.id }}"
+              {% if device and d.id == device.id %}selected{% endif %}
+            >
+              {{ d.name }} — {{ d.ip_address }}
+              {% if d.status == 'inactive' %}(inactive){% endif %}
+            </option>
+          {% endfor %}
+        </optgroup>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+
+{# ================================================================== #}
+{# STATE 1: OVERVIEW (no device selected)                             #}
+{# ================================================================== #}
+{% if not device %}
+
+{#
+  Counts passed to JS so the filter buttons can show totals
+  e.g. "Needs setup (3)". Calculated once here in Jinja.
+#}
+{% set ns_count = overview_rows | selectattr("allowlisted_port_count", "equalto", 0) | list | length %}
+{% set cfg_count = overview_rows | length - ns_count %}
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span>Select a device to manage its allowlist</span>
+    {#
+      Filter buttons — JS updates the active state and filters the table.
+      Counts are rendered in the button text via data attributes read by JS.
+    #}
+    <div class="d-flex gap-2" id="overviewFilterBtns">
+      <button class="btn btn-sm pw-filter-tab active" data-filter="all"
+              id="filterBtnAll">All ({{ overview_rows | length }})</button>
+      <button class="btn btn-sm pw-filter-tab" data-filter="needs-setup"
+              id="filterBtnNeeds">Needs setup ({{ ns_count }})</button>
+      <button class="btn btn-sm pw-filter-tab" data-filter="configured"
+              id="filterBtnConfigured">Configured ({{ cfg_count }})</button>
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      {# table-compact gives slightly smaller text/padding (defined in portwatch_theme.css) #}
+      <table class="table table-hover table-compact mb-0" id="overviewTable">
+        <thead>
+          <tr>
+            <th scope="col">Device</th>
+            <th scope="col">IP Address</th>
+            <th scope="col">Lab / Location</th>
+            <th scope="col">Approved Entries</th>
+            <th scope="col">Required Ports</th>
+            <th scope="col">Action</th>
+          </tr>
+        </thead>
+        <tbody id="overviewTableBody">
+          {% for d in overview_rows %}
+          <tr class="pw-overview-row"
+              data-has-entries="{{ 'yes' if d.allowlisted_port_count > 0 else 'no' }}">
+            <td>
+              <div class="pw-device-name">{{ d.name }}</div>
+              <div class="pw-device-type">{{ d.device_type }}</div>
+            </td>
+            <td class="pw-mono">{{ d.ip_address }}</td>
+            <td>{{ d.lab_location }}</td>
+            <td>
+              {% if d.allowlisted_port_count == 0 %}
+                <span class="pw-ports-none">None set</span>
+              {% else %}
+                {{ d.allowlisted_port_count }}
+                port{{ "s" if d.allowlisted_port_count != 1 }}
+              {% endif %}
+            </td>
+            <td class="pw-text-muted">{{ required_counts.get(d.id, 0) }}</td>
+            <td>
+              <a href="{{ url_for('admin.allowlist') }}?device_id={{ d.id }}"
+                 class="btn btn-sm btn-outline-secondary">Manage</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# No filter results empty state (shown by JS) #}
+<div id="noOverviewResults" class="pw-empty-state mt-3" style="display:none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No devices match this filter.</p>
+</div>
+
+{# Pagination — 15 per page for the overview table #}
+<div id="overviewPagination" class="pw-pagination-wrap mt-3"></div>
+
+
+{# ================================================================== #}
+{# STATE 2: MANAGE VIEW (device selected)                             #}
+{# ================================================================== #}
+{% else %}
+
+{# ---- Device info card ---- #}
+<div class="card mb-3 pw-allowlist-device-card">
+  <div class="card-body py-3">
+    <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
+      <div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="pw-allowlist-device-name">{{ device.name }}</span>
+          <span class="pw-mono pw-text-muted">{{ device.ip_address }}</span>
+          {% if device.status == "active" %}
+            <span class="pw-status-active">
+              <span class="pw-status-dot" aria-hidden="true"></span>Active
+            </span>
+          {% else %}
+            <span class="pw-status-inactive">Inactive</span>
+          {% endif %}
+        </div>
+        <div class="pw-text-muted small mt-1">
+          {{ device.device_type }} &mdash; {{ device.lab_location }}
+          &nbsp;|&nbsp;
+          {% if device.last_scanned %}
+            Last scanned: {{ device.last_scanned.strftime("%d %b %Y, %H:%M") }}
+          {% else %}
+            <span>Never scanned</span>
+          {% endif %}
+        </div>
+      </div>
+      <a href="{{ url_for('admin.devices') }}"
+         class="pw-allowlist-registry-link small">
+        <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>
+        View in Device Registry
+      </a>
+    </div>
+  </div>
+</div>
+
+{# Inactive device warning — kept as specified #}
+{% if device.status == "inactive" %}
+<div class="pw-allowlist-warn-bar mb-3">
+  <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+  This device is <strong>inactive</strong> and will not be scanned until it is
+  activated in the <a href="{{ url_for('admin.devices') }}">Device Registry</a>.
+</div>
+{% endif %}
+
+{# The "No approved ports yet" info bar has been removed per spec item 5. #}
+
+
+{# ---- Summary strip (3 stat cards) ---- #}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-lg-4">
+    <div class="pw-stat-card">
+      <div class="pw-stat-number">{{ entry_count }}</div>
+      <div class="pw-stat-label">Approved Entries</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-4">
+    <div class="pw-stat-card">
+      <div class="pw-stat-number">{{ required_count }}</div>
+      <div class="pw-stat-label">Expected Open</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-4">
+    <div class="pw-stat-card">
+      <div class="pw-stat-number {% if risky_count > 0 %}pw-red{% endif %}">
+        {{ risky_count }}
+      </div>
+      <div class="pw-stat-label">Risky Services Allowed</div>
+    </div>
+  </div>
+</div>
+
+
+{# ---- Toolbar ---- #}
+<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+  <div class="pw-search-wrap" style="min-width:220px; max-width:320px; flex:1;">
+    <i class="bi bi-search pw-search-icon" aria-hidden="true"></i>
+    <input
+      type="text"
+      id="entrySearch"
+      class="form-control pw-input pw-search-input"
+      placeholder="Search port, service, or notes…"
+      aria-label="Search allowlist entries"
+    />
+  </div>
+  <div class="d-flex gap-2">
+    <button
+      class="btn btn-outline-secondary"
+      data-bs-toggle="modal"
+      data-bs-target="#copyModal"
+      {% if all_devices|length <= 1 %}disabled{% endif %}
+    >
+      <i class="bi bi-files me-1" aria-hidden="true"></i>
+      Copy from Device
+    </button>
+    <button
+      class="btn btn-primary"
+      id="addPortBtn"
+      data-bs-toggle="modal"
+      data-bs-target="#entryFormModal"
+      data-mode="add"
+    >
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+      Add Port
+    </button>
+  </div>
+</div>
+
+
+{# ---- Allowlist table or empty state ---- #}
+{% if entries %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="entriesTable">
+        <thead>
+          <tr>
+            <th scope="col">Port</th>
+            <th scope="col">Proto</th>
+            <th scope="col">Service</th>
+            <th scope="col">
+              Expected Open
+              <i class="bi bi-info-circle pw-text-muted ms-1"
+                 data-bs-toggle="tooltip"
+                 data-bs-placement="top"
+                 title="Required ports are flagged as Missing if found closed during a scan."
+                 aria-hidden="true"></i>
+            </th>
+            <th scope="col">Risk</th>
+            <th scope="col">Reason / Notes</th>
+            <th scope="col">Added</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="entriesTableBody">
+          {% for entry in entries %}
+          <tr
+            class="pw-entry-row{% if new_entry_id and entry.id == new_entry_id %} row-new-device{% endif %}"
+            data-search="{{ entry.port }} {{ entry.service }} {{ entry.notes | lower }}"
+            data-entry-id="{{ entry.id }}"
+          >
+
+            <td class="pw-mono fw-bold">{{ entry.port }}</td>
+
+            <td>
+              <span class="pw-proto-badge pw-proto-{{ entry.protocol }}">
+                {{ entry.protocol | upper }}
+              </span>
+            </td>
+
+            <td>
+              <div class="pw-mono">{{ entry.service }}</div>
+              {% set ref = port_reference.get(entry.port) %}
+              {% if ref %}
+                <div class="pw-text-muted" style="font-size:0.75rem;">
+                  {{ ref.description }}
+                </div>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if entry.expected_open %}
+                <span class="pw-badge-required">Required</span>
+              {% else %}
+                <span class="pw-text-muted small">Optional</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% set ref = port_reference.get(entry.port) %}
+              {% if ref and ref.is_risky %}
+                <span
+                  class="badge-risk-high d-inline-flex align-items-center gap-1"
+                  data-bs-toggle="tooltip"
+                  data-bs-placement="top"
+                  title="{{ ref.risk_reason }}"
+                >
+                  <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                  Risky
+                </span>
+              {% else %}
+                <span class="pw-text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if entry.notes %}
+                <span
+                  class="pw-notes-truncate"
+                  {% if entry.notes | length > 50 %}
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="{{ entry.notes }}"
+                  {% endif %}
+                >{{ entry.notes | truncate(50, True, '…') }}</span>
+              {% else %}
+                <span class="pw-text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td class="pw-text-muted small">
+              {{ entry.created_at.strftime("%d %b %Y") }}
+            </td>
+
+            <td>
+              <div class="d-flex gap-1">
+
+                {#
+                  Edit button.
+                  All entry values are stored as data-* attributes so JS
+                  can prefill the shared modal without any extra requests.
+                  data-entry-expected must be "true"/"false" string so JS
+                  can compare with ===  "true" to set the checkbox.
+                #}
+                <button
+                  class="btn-icon"
+                  data-bs-toggle="modal"
+                  data-bs-target="#entryFormModal"
+                  data-mode="edit"
+                  data-entry-id="{{ entry.id }}"
+                  data-entry-port="{{ entry.port }}"
+                  data-entry-protocol="{{ entry.protocol }}"
+                  data-entry-service="{{ entry.service }}"
+                  data-entry-expected="{{ 'true' if entry.expected_open else 'false' }}"
+                  data-entry-notes="{{ entry.notes | e }}"
+                  data-edit-url="{{ url_for('admin.allowlist_entry_edit', device_id=device.id, entry_id=entry.id) }}"
+                  data-bs-placement="top"
+                  title="Edit entry"
+                  aria-label="Edit port {{ entry.port }}"
+                >
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+
+                {#
+                  Delete button.
+                  data-delete-url must point to the correct entry delete route.
+                  JS reads these attributes and sets the modal form action +
+                  fills in the confirmation text.
+                #}
+                <button
+                  class="btn-icon btn-icon-danger"
+                  data-bs-toggle="modal"
+                  data-bs-target="#deleteEntryModal"
+                  data-entry-port="{{ entry.port }}"
+                  data-entry-protocol="{{ entry.protocol }}"
+                  data-entry-service="{{ entry.service }}"
+                  data-device-name="{{ device.name }}"
+                  data-delete-url="{{ url_for('admin.allowlist_entry_delete', device_id=device.id, entry_id=entry.id) }}"
+                  data-bs-placement="top"
+                  title="Remove entry"
+                  aria-label="Remove port {{ entry.port }}"
+                >
+                  <i class="bi bi-trash" aria-hidden="true"></i>
+                </button>
+
+              </div>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# No search results empty state (shown by JS) #}
+<div id="noEntryResults" class="pw-empty-state" style="display:none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No entries match your search.</p>
+  <button id="clearEntrySearch" class="btn btn-outline-secondary btn-sm">
+    Clear search
+  </button>
+</div>
+
+{# Pagination — 8 per page for the entries table #}
+<div id="entriesPagination" class="pw-pagination-wrap mt-3"></div>
+
+
+{% else %}
+
+{#
+  Empty allowlist state.
+  Per spec item 4: show the icon and text only — NO buttons.
+  The Add Port and Copy from Device buttons are already in the toolbar above.
+#}
+<div class="pw-empty-state">
+  <i class="bi bi-shield-check pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No approved ports for {{ device.name }}.</p>
+  <p class="pw-text-muted small">
+    Add ports manually or copy an allowlist from a similar device.
+  </p>
+</div>
+
+{% endif %}{# end if entries #}
+
+{# Modals are always included so the toolbar buttons can open them #}
+{% include "admin/components/admin_allowlist_entry_modal.html" %}
+{% include "admin/components/admin_allowlist_delete_modal.html" %}
+{% include "admin/components/admin_allowlist_copy_modal.html" %}
+
+{% endif %}{# end if device #}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  window.allowlistState = {
+    hasDevice:      {{ 'true' if device else 'false' }},
+    deviceId:       {{ device.id       | tojson if device else 'null' }},
+    deviceName:     {{ device.name     | tojson if device else 'null' }},
+    deviceIp:       {{ device.ip_address | tojson if device else 'null' }},
+    newEntryId:     {{ new_entry_id    | tojson }},
+    openEntryModal: {{ 'true' if open_entry_modal else 'false' }},
+    openCopyModal:  {{ 'true' if open_copy_modal  else 'false' }},
+    editingEntryId: {{ (form_data.editing_entry_id | tojson) if form_data and form_data.editing_entry_id else 'null' }},
+    addEntryUrl:    "{{ url_for('admin.allowlist_entry_add', device_id=device.id) if device else '#' }}",
+    portReference:  {{ port_reference | tojson }},
+  };
+  window.overviewDeviceCount = {{ all_devices | length }};
+  window.totalEntryCount     = {{ entry_count }};
+</script>
+{% if device %}
+<script>
+  {# All other devices' entries for the Copy modal preview table #}
+  window.allowlistEntriesByDevice = {{ entries_by_device | tojson }};
+</script>
+{% endif %}
+<script src="{{ url_for('static', filename='js/admin_allowlist_management.js') }}"></script>
+{% endblock %}

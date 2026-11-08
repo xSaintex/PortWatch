@@ -1,0 +1,240 @@
+{#
+  admin/admin_dashboard.html
+  The Administrator Dashboard page.
+  Extends the shared base layout and fills in the 'content' block.
+
+  EXPECTS from the template context (all provided by admin_dashboard_mock.py):
+    summary                  — dict with registered_devices, open_ports_found,
+                               flagged_findings, high_risk_findings
+    chart_findings_by_label  — dict with labels, counts, colors (for doughnut)
+    chart_findings_by_risk   — dict with labels, counts, colors (for bar chart)
+    recent_scans             — list of dicts (device_name, ip, scan_date, etc.)
+    high_risk_count          — int (for alert banner)
+    alert_scan_id            — str (for alert banner review link)
+#}
+{% extends "base/base_layout.html" %}
+
+
+{# ------------------------------------------------------------------ #}
+{# Browser tab title                                                   #}
+{# ------------------------------------------------------------------ #}
+{% block title %}Dashboard{% endblock %}
+
+
+{# ------------------------------------------------------------------ #}
+{# MAIN PAGE CONTENT                                                   #}
+{# ------------------------------------------------------------------ #}
+{% block content %}
+
+{# Page header #}
+<h1 class="pw-page-title">Dashboard</h1>
+<p class="pw-page-subtitle">Overview of authorized lab devices and latest scan findings</p>
+
+
+{# ================================================================== #}
+{# 1. ALERT BANNER                                                     #}
+{# Only visible when high_risk_count > 0. Defined in the partial.     #}
+{# ================================================================== #}
+{% include "partials/alert_banner.html" %}
+
+
+{# ================================================================== #}
+{# 2. SUMMARY CARDS (4 cards in one row)                              #}
+{# Bootstrap grid: 4 columns on large, 2 on medium, 1 on small.      #}
+{# ================================================================== #}
+<div class="row g-3 mb-4">
+
+    {# Card: Registered Devices #}
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="pw-summary-card h-100">
+            <i class="bi bi-pc-display pw-summary-icon" aria-hidden="true"></i>
+            <div>
+                <div class="pw-summary-number">{{ summary.registered_devices }}</div>
+                <div class="pw-summary-label">Registered Devices</div>
+            </div>
+        </div>
+    </div>
+
+    {# Card: Open Ports Found #}
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="pw-summary-card h-100">
+            <i class="bi bi-door-open pw-summary-icon" aria-hidden="true"></i>
+            <div>
+                <div class="pw-summary-number">{{ summary.open_ports_found }}</div>
+                <div class="pw-summary-label">Open Ports Found</div>
+            </div>
+        </div>
+    </div>
+
+    {# Card: Flagged Findings #}
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="pw-summary-card h-100">
+            <i class="bi bi-flag pw-summary-icon" aria-hidden="true"></i>
+            <div>
+                <div class="pw-summary-number">{{ summary.flagged_findings }}</div>
+                <div class="pw-summary-label">Flagged Findings</div>
+            </div>
+        </div>
+    </div>
+
+    {# Card: High-Risk Findings — number shown in red #}
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="pw-summary-card h-100">
+            <i class="bi bi-exclamation-octagon pw-summary-icon" aria-hidden="true"></i>
+            <div>
+                <div class="pw-summary-number pw-red">{{ summary.high_risk_findings }}</div>
+                <div class="pw-summary-label">High-Risk Findings</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+{# ================================================================== #}
+{# 3. CHARTS (two side-by-side on desktop, stacked on mobile)        #}
+{# ================================================================== #}
+<div class="row g-3 mb-4">
+
+    {# Doughnut: Findings by Label #}
+    <div class="col-12 col-lg-5">
+        <div class="pw-chart-card h-100">
+            <div class="pw-chart-title">Findings by Label</div>
+            <div class="pw-chart-container" style="max-height: 280px;">
+                <canvas id="chartFindingsByLabel" aria-label="Doughnut chart: findings by label" role="img"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {# Bar: Findings by Risk Level #}
+    <div class="col-12 col-lg-7">
+        <div class="pw-chart-card h-100">
+            <div class="pw-chart-title">Findings by Risk Level</div>
+            <div class="pw-chart-container" style="max-height: 280px;">
+                <canvas id="chartFindingsByRisk" aria-label="Bar chart: findings by risk level" role="img"></canvas>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+{# ================================================================== #}
+{# 4. RECENT SCANS TABLE                                              #}
+{# ================================================================== #}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Recent Scans</span>
+        <a href="{{ url_for('admin.history') }}" class="text-muted small">
+            View all <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Device Name</th>
+                        <th scope="col">IP Address</th>
+                        <th scope="col">Scan Date</th>
+                        <th scope="col">Open Ports</th>
+                        <th scope="col">Flagged</th>
+                        <th scope="col">Highest Risk</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in recent_scans %}
+                    <tr>
+                        {# Device name #}
+                        <td>{{ scan.device_name }}</td>
+
+                        {# IP address — monospace font via pw-mono class #}
+                        <td class="pw-mono">{{ scan.ip }}</td>
+
+                        {# Scan date formatted as a readable string #}
+                        <td>{{ scan.scan_date.strftime("%d %b %Y, %H:%M") }}</td>
+
+                        {# Open port count #}
+                        <td>{{ scan.open_ports }}</td>
+
+                        {# Flagged findings count #}
+                        <td>{{ scan.flagged }}</td>
+
+                        {# Highest risk badge #}
+                        <td>
+                            {% if scan.highest_risk == "High" %}
+                                <span class="badge-risk-high">High</span>
+                            {% elif scan.highest_risk == "Medium" %}
+                                <span class="badge-risk-medium">Medium</span>
+                            {% elif scan.highest_risk == "Low" %}
+                                <span class="badge-risk-low">Low</span>
+                            {% else %}
+                                <span class="badge-risk-none">None</span>
+                            {% endif %}
+                        </td>
+
+                        {# Action buttons #}
+                        <td>
+                            <div class="d-flex gap-2">
+                                {# View button — links to Scan Results page #}
+                                <a
+                                    href="{{ url_for('admin.scan_results', scan_id=scan.scan_id) }}"
+                                    class="btn-icon"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="top"
+                                    title="View scan results"
+                                    aria-label="View results for {{ scan.scan_id }}"
+                                >
+                                    <i class="bi bi-eye" aria-hidden="true"></i>
+                                </a>
+
+                                {# PDF download button #}
+                                <a
+                                    href="{{ url_for('admin.scan_report_pdf', scan_id=scan.scan_id) }}"
+                                    class="btn-icon"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="top"
+                                    title="Print PDF"
+                                    aria-label="Download PDF report for {{ scan.scan_id }}"
+                                >
+                                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                                </a>
+                            </div>
+                        </td>
+
+                    </tr>
+                    {% else %}
+                    {# Shown if recent_scans list is empty #}
+                    <tr>
+                        <td colspan="7" class="text-center pw-text-muted py-4">
+                            No scans have been run yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+
+
+{% endblock %}
+
+
+{# ------------------------------------------------------------------ #}
+{# PAGE-SPECIFIC SCRIPTS                                               #}
+{# Pass Python chart data to JavaScript safely using tojson filter.   #}
+{# tojson automatically escapes special characters — never use        #}
+{# string concatenation to pass Python data to JavaScript.            #}
+{# ------------------------------------------------------------------ #}
+{% block extra_scripts %}
+<script>
+    // Chart data from Flask — set as global variables for admin_dashboard_charts.js
+    window.chartFindingsByLabel = {{ chart_findings_by_label | tojson }};
+    window.chartFindingsByRisk  = {{ chart_findings_by_risk  | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/admin_dashboard_charts.js') }}"></script>
+{% endblock %}

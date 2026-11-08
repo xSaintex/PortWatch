@@ -1,0 +1,30 @@
+{#
+  admin/admin_coming_soon.html
+  A placeholder page shown for admin sections not yet built.
+  Extends the base layout so the full navigation is still visible.
+
+  EXPECTS from the template context:
+    page_name (string) — the name of the page, shown as the title.
+                         e.g. "Device Registry", "Scan History", etc.
+    active_page (string) — passed through to the navbar/sidebar for
+                            the correct active highlight.
+#}
+{% extends "base/base_layout.html" %}
+
+{% block title %}{{ page_name }}{% endblock %}
+
+{% block content %}
+
+<h1 class="pw-page-title">{{ page_name }}</h1>
+
+{# Centered "under construction" message #}
+<div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 50vh;">
+    <i class="bi bi-tools" style="font-size: 3.5rem; color: var(--pw-text-muted);" aria-hidden="true"></i>
+    <p class="pw-text-muted mt-3 mb-1" style="font-size: 1.1rem;">This page is under construction.</p>
+    <p class="pw-text-muted" style="font-size: 0.9rem;">
+        Check back soon, or
+        <a href="{{ url_for('admin.dashboard') }}">return to the Dashboard</a>.
+    </p>
+</div>
+
+{% endblock %}

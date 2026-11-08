@@ -1,0 +1,1856 @@
+/*
+ * portwatch_theme.css
+ * The single source of truth for all PortWatch visual styling.
+ * This file:
+ *   1. Defines CSS custom properties (variables) for the color theme.
+ *   2. Overrides Bootstrap 5 defaults to match the dark theme.
+ *   3. Provides layout rules for the top navbar and side icon bar.
+ *   4. Defines reusable badge classes for risk levels and finding labels.
+ *   5. Includes a @media print section for the future print feature.
+ *
+ * NO inline styles should exist in templates — put everything here.
+ */
+
+
+/* ================================================================== */
+/* 1. CSS CUSTOM PROPERTIES (DESIGN TOKENS)                           */
+/* ================================================================== */
+
+:root {
+    /* Brand colours */
+    --pw-red:          #B01B26;   /* Primary: buttons, active states, accents */
+    --pw-red-hover:    #8E1520;   /* Darker red for hover states */
+
+    /* Backgrounds */
+    --pw-bg:           #0D0D0D;   /* Page background — near-black */
+    --pw-surface:      #1A1A1A;   /* Cards, bars, table rows */
+
+    /* Borders */
+    --pw-border:       #2A2A2A;   /* Subtle dividers */
+
+    /* Text */
+    --pw-text:         #FFFFFF;   /* Main body text */
+    --pw-text-muted:   #A6A6A6;   /* Labels, secondary text */
+
+    /* Status colours */
+    --pw-yellow:       #FFC20E;   /* Medium risk / warning ONLY */
+
+    /* Layout dimensions */
+    --topbar-height:   60px;
+    --sidebar-width:   64px;
+}
+
+
+/* ================================================================== */
+/* 2. BOOTSTRAP OVERRIDES — DARK THEME GLOBALS                        */
+/* ================================================================== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    background-color: var(--pw-bg);
+    color: var(--pw-text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+/* Remove Bootstrap's default white body background */
+.bg-body-tertiary,
+.bg-light {
+    background-color: var(--pw-surface) !important;
+}
+
+/* Default links */
+a {
+    color: var(--pw-red);
+    text-decoration: none;
+}
+a:hover {
+    color: var(--pw-red-hover);
+    text-decoration: underline;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--pw-text);
+}
+
+/* Muted text helper */
+.text-muted,
+.pw-text-muted {
+    color: var(--pw-text-muted) !important;
+}
+
+/* Monospace for IP addresses and port numbers */
+.pw-mono {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.9em;
+    letter-spacing: 0.02em;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bootstrap Card overrides                                           */
+/* ------------------------------------------------------------------ */
+
+.card {
+    background-color: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+    border-radius: 8px;
+    color: var(--pw-text);
+}
+
+.card-header {
+    background-color: transparent;
+    border-bottom: 1px solid var(--pw-border);
+    color: var(--pw-text);
+    font-weight: 600;
+}
+
+.card-body {
+    color: var(--pw-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bootstrap Table overrides                                          */
+/* ------------------------------------------------------------------ */
+
+.table {
+    color: var(--pw-text);
+    border-color: var(--pw-border);
+}
+
+.table > :not(caption) > * > * {
+    background-color: transparent;
+    color: var(--pw-text);
+    border-bottom-color: var(--pw-border);
+}
+
+.table-hover > tbody > tr:hover > * {
+    background-color: rgba(176, 27, 38, 0.07);
+    color: var(--pw-text);
+}
+
+.table thead th {
+    color: var(--pw-text-muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--pw-border);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bootstrap Button overrides                                         */
+/* ------------------------------------------------------------------ */
+
+/* Primary button = PortWatch red */
+.btn-primary {
+    background-color: var(--pw-red);
+    border-color: var(--pw-red);
+    color: #fff;
+}
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--pw-red-hover);
+    border-color: var(--pw-red-hover);
+    color: #fff;
+}
+
+/* Outline secondary button */
+.btn-outline-secondary {
+    border-color: var(--pw-border);
+    color: var(--pw-text-muted);
+}
+.btn-outline-secondary:hover {
+    background-color: var(--pw-border);
+    color: var(--pw-text);
+}
+
+/* Small icon action buttons in tables */
+.btn-icon {
+    background: transparent;
+    border: 1px solid var(--pw-border);
+    color: var(--pw-text-muted);
+    padding: 4px 8px;
+    border-radius: 6px;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+.btn-icon:hover {
+    background: var(--pw-border);
+    color: var(--pw-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bootstrap Form overrides (for future use)                          */
+/* ------------------------------------------------------------------ */
+
+.form-control,
+.form-select {
+    background-color: var(--pw-bg);
+    border: 1px solid var(--pw-border);
+    color: var(--pw-text);
+}
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--pw-bg);
+    border-color: var(--pw-red);
+    color: var(--pw-text);
+    box-shadow: 0 0 0 0.2rem rgba(176, 27, 38, 0.25);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bootstrap Dropdown overrides (for future use)                      */
+/* ------------------------------------------------------------------ */
+
+.dropdown-menu {
+    background-color: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+}
+.dropdown-item {
+    color: var(--pw-text);
+}
+.dropdown-item:hover {
+    background-color: var(--pw-border);
+    color: var(--pw-text);
+}
+
+
+/* ================================================================== */
+/* 3. LAYOUT — TOP NAVBAR & SIDE ICON BAR                             */
+/* ================================================================== */
+
+/* ------------------------------------------------------------------ */
+/* Top Navigation Bar                                                 */
+/* ------------------------------------------------------------------ */
+
+.pw-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--topbar-height);
+    background-color: var(--pw-surface);
+    border-bottom: 1px solid var(--pw-border);
+    display: flex;
+    align-items: center;
+    z-index: 1040;   /* above content, below modals */
+    padding: 0 16px;
+}
+
+/* Brand / Logo area */
+.pw-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+.pw-brand:hover {
+    text-decoration: none;
+}
+.pw-brand-logo {
+    height: 32px;
+    width: auto;
+}
+.pw-brand-name {
+    color: var(--pw-text);
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.03em;
+}
+
+/* Center nav tabs wrapper */
+.pw-nav-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Individual nav tab links */
+.pw-nav-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.pw-nav-tabs .pw-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    height: var(--topbar-height);
+    color: var(--pw-text-muted);
+    font-size: 0.88rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.pw-nav-tabs .pw-nav-link:hover {
+    color: var(--pw-text);
+    text-decoration: none;
+}
+.pw-nav-tabs .pw-nav-link.active {
+    color: var(--pw-text);
+    border-bottom-color: var(--pw-red);
+}
+
+/* "Run Scan" button-style tab */
+.pw-nav-tabs .pw-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    height: 36px;
+    background-color: var(--pw-red);
+    color: #fff !important;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    transition: background-color 0.15s;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+.pw-nav-tabs .pw-nav-btn:hover {
+    background-color: var(--pw-red-hover);
+    text-decoration: none;
+}
+
+/* Right user area */
+.pw-nav-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    color: var(--pw-text-muted);
+    font-size: 0.88rem;
+}
+.pw-nav-user .pw-username {
+    color: var(--pw-text);
+    font-weight: 500;
+}
+.pw-role-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--pw-red);
+    color: var(--pw-red);
+    background: transparent;
+}
+
+/* Mobile hamburger collapse */
+.pw-nav-toggler {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--pw-border);
+    color: var(--pw-text-muted);
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Side Icon Bar                                                      */
+/* ------------------------------------------------------------------ */
+
+.pw-sidebar {
+    position: fixed;
+    top: var(--topbar-height);
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background-color: var(--pw-surface);
+    border-right: 1px solid var(--pw-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 12px;
+    gap: 4px;
+    z-index: 1030;
+}
+
+/* Each sidebar icon link */
+.pw-sidebar-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    color: var(--pw-text-muted);
+    font-size: 1.35rem;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+.pw-sidebar-link:hover {
+    background-color: var(--pw-border);
+    color: var(--pw-text);
+    text-decoration: none;
+}
+
+/* Active sidebar icon */
+.pw-sidebar-link.active {
+    color: var(--pw-text);
+    background-color: rgba(255, 255, 255, 0.06);
+}
+.pw-sidebar-link.active::before {
+    /* Red vertical bar on the left edge */
+    content: "";
+    position: absolute;
+    left: -8px;   /* offset to reach the sidebar edge */
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    background-color: var(--pw-red);
+    border-radius: 0 2px 2px 0;
+}
+
+/* Logout button — pinned to bottom, subtle red tint on hover */
+.pw-sidebar-logout {
+    /* mt-auto in the HTML pushes this to the bottom; add a top separator */
+    border-top: 1px solid var(--pw-border);
+    width: 100%;
+    border-radius: 0;
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+.pw-sidebar-logout:hover {
+    background-color: rgba(176, 27, 38, 0.15);
+    color: var(--pw-red) !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Main Content Area                                                  */
+/* ------------------------------------------------------------------ */
+
+/* Push content down below topbar and right of sidebar */
+.pw-content {
+    margin-top: var(--topbar-height);
+    margin-left: var(--sidebar-width);
+    padding: 24px;
+    min-height: calc(100vh - var(--topbar-height));
+}
+
+/* Page header */
+.pw-page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+.pw-page-subtitle {
+    color: var(--pw-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+
+/* ================================================================== */
+/* 4. COMPONENT — ALERT BANNER                                        */
+/* ================================================================== */
+
+.pw-alert-banner {
+    background-color: rgba(176, 27, 38, 0.15);
+    border-left: 4px solid var(--pw-red);
+    border-radius: 6px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    color: var(--pw-text);
+}
+.pw-alert-banner .pw-alert-icon {
+    color: var(--pw-red);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.pw-alert-banner .pw-alert-text {
+    flex: 1;
+    font-size: 0.9rem;
+}
+.pw-alert-banner .pw-alert-review {
+    color: var(--pw-red);
+    font-weight: 600;
+    font-size: 0.88rem;
+}
+.pw-alert-banner .pw-alert-review:hover {
+    color: var(--pw-red-hover);
+}
+.pw-alert-banner .pw-alert-close {
+    background: transparent;
+    border: none;
+    color: var(--pw-text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.pw-alert-banner .pw-alert-close:hover {
+    color: var(--pw-text);
+}
+
+
+/* ================================================================== */
+/* 5. COMPONENT — SUMMARY CARDS                                       */
+/* ================================================================== */
+
+.pw-summary-card {
+    background-color: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.pw-summary-icon {
+    font-size: 1.6rem;
+    color: var(--pw-text-muted);
+    flex-shrink: 0;
+}
+.pw-summary-number {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--pw-text);
+}
+.pw-summary-number.pw-red {
+    color: var(--pw-red);
+}
+.pw-summary-label {
+    font-size: 0.8rem;
+    color: var(--pw-text-muted);
+    margin-top: 2px;
+}
+
+
+/* ================================================================== */
+/* 6. REUSABLE BADGE CLASSES                                          */
+/* ================================================================== */
+/* Risk level badges */
+.badge-risk-high {
+    background-color: var(--pw-red);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.badge-risk-medium {
+    background-color: var(--pw-yellow);
+    color: #1a1a1a;   /* Dark text on yellow for readability */
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.badge-risk-low {
+    background-color: var(--pw-text-muted);
+    color: #1a1a1a;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.badge-risk-none {
+    background: transparent;
+    border: 1px solid var(--pw-border);
+    color: var(--pw-text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* Finding label badges */
+.badge-label-approved {
+    background: transparent;
+    border: 1px solid var(--pw-text-muted);
+    color: var(--pw-text-muted);
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+.badge-label-unexpected {
+    background: transparent;
+    border: 1px solid var(--pw-yellow);
+    color: var(--pw-yellow);
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+.badge-label-risky {
+    background-color: var(--pw-red);
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+.badge-label-missing {
+    background: transparent;
+    border: 1px dashed var(--pw-text);
+    color: var(--pw-text);
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+
+/* ================================================================== */
+/* 7. CHART CARDS                                                      */
+/* ================================================================== */
+
+.pw-chart-card {
+    background-color: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+    border-radius: 8px;
+    padding: 20px;
+}
+.pw-chart-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--pw-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 16px;
+}
+.pw-chart-container {
+    position: relative;
+}
+
+
+/* ================================================================== */
+/* 8. COMPONENT — FLASH MESSAGES                                      */
+/* ================================================================== */
+
+/* Stack of flash messages shown at the top of every page */
+.pw-flash-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+/* Base flash message style */
+.pw-flash {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: var(--pw-text);
+    border-left: 4px solid transparent;
+}
+
+/* Success flash — white left border, dark card */
+.pw-flash-success {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-left-color: #ffffff;
+}
+.pw-flash-success .pw-flash-icon {
+    color: #ffffff;
+}
+
+/* Error flash — red left border, red-tinted background */
+.pw-flash-error {
+    background-color: rgba(176, 27, 38, 0.15);
+    border-left-color: var(--pw-red);
+}
+.pw-flash-error .pw-flash-icon {
+    color: var(--pw-red);
+}
+
+/* Warning flash — yellow left border */
+.pw-flash-warning {
+    background-color: rgba(255, 194, 14, 0.1);
+    border-left-color: var(--pw-yellow);
+}
+.pw-flash-warning .pw-flash-icon {
+    color: var(--pw-yellow);
+}
+
+.pw-flash-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.pw-flash-text {
+    flex: 1;
+}
+
+.pw-flash-close {
+    background: transparent;
+    border: none;
+    color: var(--pw-text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.pw-flash-close:hover {
+    color: var(--pw-text);
+}
+
+
+/* ================================================================== */
+/* 9. COMPONENT — DEVICE REGISTRY                                     */
+/* ================================================================== */
+
+/* ---- Compact stat strip cards (smaller than dashboard summary) ---- */
+.pw-stat-card {
+    background-color: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+}
+.pw-stat-number {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--pw-text);
+}
+.pw-stat-number.pw-stat-green {
+    color: #4CAF50;   /* Green for active count — status indicator only */
+}
+.pw-stat-number.pw-stat-yellow {
+    color: var(--pw-yellow);
+}
+.pw-stat-label {
+    font-size: 0.75rem;
+    color: var(--pw-text-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ---- Search input with icon overlay ---- */
+.pw-search-wrap {
+    position: relative;
+}
+.pw-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--pw-text-muted);
+    pointer-events: none;   /* so clicks pass through to the input */
+    font-size: 0.9rem;
+}
+.pw-search-input {
+    padding-left: 32px;   /* make room for the icon */
+}
+
+/* ---- "Clear filters" text button ---- */
+.pw-clear-btn {
+    background: transparent;
+    border: none;
+    color: var(--pw-text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.pw-clear-btn:hover {
+    color: var(--pw-text);
+}
+
+/* ---- Device table cells ---- */
+.pw-device-name {
+    font-weight: 600;
+    color: var(--pw-text);
+}
+.pw-device-type {
+    font-size: 0.78rem;
+    color: var(--pw-text-muted);
+    margin-top: 2px;
+}
+
+/* Inactive rows are visually dimmed to show they are not scannable */
+.pw-row-inactive td {
+    opacity: 0.5;
+}
+
+/* "None set" warning for devices with no allowlisted ports */
+.pw-ports-none {
+    color: var(--pw-yellow);
+    font-size: 0.85rem;
+}
+
+/* ---- Status indicators ---- */
+.pw-status-active {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--pw-text);
+    font-size: 0.85rem;
+}
+.pw-status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #4CAF50;   /* green dot for active */
+    flex-shrink: 0;
+}
+.pw-status-inactive {
+    color: var(--pw-text-muted);
+    font-size: 0.85rem;
+}
+
+/* ---- Danger variant for the delete icon button ---- */
+.btn-icon-danger:hover {
+    background: rgba(176, 27, 38, 0.2);
+    border-color: var(--pw-red);
+    color: var(--pw-red) !important;
+}
+
+/* ---- Empty state (no devices or no filter results) ---- */
+.pw-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+.pw-empty-icon {
+    font-size: 3rem;
+    color: var(--pw-text-muted);
+    margin-bottom: 12px;
+}
+.pw-empty-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--pw-text-muted);
+    margin-bottom: 4px;
+}
+
+
+/* ================================================================== */
+/* 10. COMPONENT — MODALS (shared dark theme)                         */
+/* ================================================================== */
+
+.pw-modal-content {
+    background-color: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+    border-radius: 10px;
+    color: var(--pw-text);
+}
+
+.pw-modal-header {
+    border-bottom: 1px solid var(--pw-border);
+    padding: 16px 20px;
+}
+
+/* Compact variant used by the Add/Edit device modal so the form
+   fits on a 1366×640 laptop without the body needing to scroll. */
+.pw-modal-header-compact {
+    padding: 12px 20px;
+}
+
+.pw-modal-body {
+    padding: 20px;
+}
+
+/* Compact body padding for the two-column device form */
+.pw-modal-body-compact {
+    padding: 16px 20px 8px;
+}
+
+.pw-modal-footer {
+    border-top: 1px solid var(--pw-border);
+    padding: 14px 20px;
+    justify-content: flex-end;
+}
+
+.pw-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--pw-text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    margin-left: auto;
+}
+.pw-modal-close:hover {
+    color: var(--pw-text);
+}
+
+/* Warning icon inside the delete modal title */
+.pw-modal-warn-icon {
+    color: var(--pw-red);
+}
+
+/* Delete modal body text */
+.pw-modal-delete-text {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+}
+
+/* Tip box inside delete modal */
+.pw-modal-tip {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--pw-border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: var(--pw-text-muted);
+    margin-top: 12px;
+}
+
+/* Form labels inside modals */
+.pw-form-label {
+    color: var(--pw-text);
+    font-size: 0.88rem;
+    font-weight: 500;
+    margin-bottom: 5px;
+    display: block;
+}
+
+/* Required field asterisk */
+.pw-required {
+    color: var(--pw-red);
+}
+
+/* Hint text below form fields */
+.pw-form-hint {
+    color: var(--pw-text-muted);
+    font-size: 0.78rem;
+    margin-top: 4px;
+}
+
+/* Dark input inside modals (overrides Bootstrap for modal context) */
+.pw-input {
+    background-color: var(--pw-bg) !important;
+    border: 1px solid var(--pw-border) !important;
+    color: var(--pw-text) !important;
+}
+.pw-input:focus {
+    border-color: var(--pw-red) !important;
+    box-shadow: 0 0 0 0.2rem rgba(176, 27, 38, 0.25) !important;
+    background-color: var(--pw-bg) !important;
+    color: var(--pw-text) !important;
+}
+.pw-input::placeholder {
+    color: var(--pw-text-muted);
+}
+/* Keep dark background in dark mode for <select> options */
+.pw-input option {
+    background-color: var(--pw-surface);
+    color: var(--pw-text);
+}
+
+/* Bootstrap danger button */
+.btn-danger {
+    background-color: var(--pw-red);
+    border-color: var(--pw-red);
+    color: #fff;
+}
+.btn-danger:hover,
+.btn-danger:focus {
+    background-color: var(--pw-red-hover);
+    border-color: var(--pw-red-hover);
+    color: #fff;
+}
+
+
+/* ================================================================== */
+/* 11. RESPONSIVE BREAKPOINTS                                          */
+/* ================================================================== */
+
+@media (max-width: 768px) {
+    /* Stack summary cards into 2 columns on tablets */
+    .pw-summary-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* Hide center nav tabs on small screens, show hamburger */
+    .pw-nav-center {
+        display: none;
+    }
+    .pw-nav-toggler {
+        display: flex;
+        align-items: center;
+    }
+
+    /* Collapsed mobile menu */
+    .pw-nav-center.show {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: var(--topbar-height);
+        left: 0;
+        right: 0;
+        background-color: var(--pw-surface);
+        border-bottom: 1px solid var(--pw-border);
+        padding: 12px 16px;
+        z-index: 1039;
+    }
+    .pw-nav-center.show .pw-nav-tabs {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        width: 100%;
+    }
+    .pw-nav-center.show .pw-nav-link {
+        height: auto;
+        padding: 10px 0;
+        border-bottom: none;
+    }
+    .pw-nav-center.show .pw-nav-btn {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Stack summary cards to 1 column on phones */
+    .pw-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pw-content {
+        padding: 16px;
+    }
+}
+
+
+/* ================================================================== */
+/* 12. COMPONENT — PAGINATION                                         */
+/* ================================================================== */
+
+/* Mount-point wrapper — flex row: info text left, controls right */
+.pw-pagination-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 4px;
+}
+
+/* "Showing 1–8 of 20 devices" */
+.pw-pagination-info {
+    font-size: 0.82rem;
+    color: var(--pw-text-muted);
+    white-space: nowrap;
+}
+
+/* Button row */
+.pw-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+/* Individual page buttons */
+.pw-page-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    background-color: var(--pw-surface);
+    border: 1px solid var(--pw-border);
+    color: var(--pw-text-muted);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    line-height: 1;
+}
+.pw-page-btn:hover:not(:disabled):not(.active) {
+    background-color: var(--pw-border);
+    color: var(--pw-text);
+}
+/* Active (current) page is red */
+.pw-page-btn.active {
+    background-color: var(--pw-red);
+    border-color: var(--pw-red);
+    color: #fff;
+    font-weight: 700;
+    cursor: default;
+}
+.pw-page-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* "…" separator between page numbers */
+.pw-page-ellipsis {
+    color: var(--pw-text-muted);
+    font-size: 0.82rem;
+    padding: 0 4px;
+    user-select: none;
+}
+
+/* Responsive: stack on very small screens */
+@media (max-width: 480px) {
+    .pw-pagination-wrap {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+
+/* ================================================================== */
+/* 13. COMPONENT — MODAL ADDITIONS (info box, subtitle, toggle)       */
+/* ================================================================== */
+
+/* Icon next to modal title */
+.pw-modal-title-icon {
+    font-size: 1.1rem;
+    color: var(--pw-text-muted);
+}
+
+/* Muted subtitle line under the modal title */
+.pw-modal-subtitle {
+    font-size: 0.8rem;
+    color: var(--pw-text-muted);
+    margin-top: 3px;
+}
+
+/* Info box at the bottom of the modal body */
+.pw-modal-info-box {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--pw-border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: var(--pw-text-muted);
+    line-height: 1.45;
+}
+.pw-modal-info-box i {
+    color: var(--pw-text-muted);
+}
+
+/* Status toggle switch — uses Bootstrap's form-switch, overridden here */
+.pw-toggle {
+    width: 2.4em;
+    height: 1.3em;
+    background-color: var(--pw-border);
+    border-color: var(--pw-border);
+    cursor: pointer;
+}
+.pw-toggle:checked {
+    background-color: var(--pw-red);
+    border-color: var(--pw-red);
+}
+.pw-toggle:focus {
+    box-shadow: 0 0 0 0.2rem rgba(176, 27, 38, 0.25);
+}
+.pw-toggle-label {
+    color: var(--pw-text);
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+
+/* Inline link inside flash success messages (e.g. "Set up allowlist →") */
+.pw-flash-link {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.pw-flash-link:hover {
+    opacity: 0.8;
+}
+
+/* ------------------------------------------------------------------ */
+/* NEW DEVICE ROW HIGHLIGHT                                           */
+/* ------------------------------------------------------------------ */
+
+/* "NEW" badge shown next to the device name on the row that was just added */
+.badge-new-device {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--pw-red);
+    color: var(--pw-red);
+    text-transform: uppercase;
+    vertical-align: middle;
+    line-height: 1.4;
+}
+
+/*
+ * Highlight animation for a newly added row.
+ * Applied by Jinja when new_device_id matches the row's device.id.
+ * The row starts with a red-tinted background and a red left border,
+ * then both fade to transparent over 3 seconds so the user's eye is
+ * drawn to it without a jarring flash.
+ */
+@keyframes pw-new-row-fade {
+    0%   {
+        background-color: rgba(176, 27, 38, 0.18);
+        box-shadow: inset 3px 0 0 var(--pw-red);
+    }
+    60%  {
+        background-color: rgba(176, 27, 38, 0.10);
+        box-shadow: inset 3px 0 0 rgba(176, 27, 38, 0.5);
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: inset 3px 0 0 transparent;
+    }
+}
+
+.row-new-device {
+    animation: pw-new-row-fade 3s ease-out forwards;
+}
+
+/* Make sure the hover background doesn't override the start of the animation */
+.row-new-device > td {
+    /* Cells inside the animated row must have transparent backgrounds
+       so the tr-level animation colour shows through */
+    background-color: transparent !important;
+}
+
+
+/* ================================================================== */
+/* 15. COMPONENT — ALLOWLIST MANAGEMENT                               */
+/* ================================================================== */
+
+/* Compact table variant — used on the Overview table so more rows fit.
+   Slightly smaller text, reduced cell padding, and scaled-down badges.
+   Applied as an additional class: <table class="table table-compact"> */
+.table-compact {
+    font-size: 0.82rem;
+}
+.table-compact thead th {
+    font-size: 0.74rem;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+.table-compact tbody td {
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+/* Scale down device name and type inside compact rows */
+.table-compact .pw-device-name {
+    font-size: 0.85rem;
+}
+.table-compact .pw-device-type {
+    font-size: 0.72rem;
+}
+/* Scale down badges inside compact rows */
+.table-compact .pw-ports-none,
+.table-compact .badge-risk-high,
+.table-compact .badge-risk-medium,
+.table-compact .badge-risk-low,
+.table-compact .badge-risk-none {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+}
+/* Scale monospace IPs down slightly */
+.table-compact .pw-mono {
+    font-size: 0.82rem;
+}
+
+/* Device selector in the page header */
+.pw-device-selector {
+    min-width: 260px;
+    max-width: 340px;
+}
+
+/* Device info card — name shown large */
+.pw-allowlist-device-card {
+    border-color: var(--pw-border);
+}
+.pw-allowlist-device-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--pw-text);
+}
+
+/* Link to Device Registry */
+.pw-allowlist-registry-link {
+    color: var(--pw-text-muted);
+    white-space: nowrap;
+}
+.pw-allowlist-registry-link:hover {
+    color: var(--pw-text);
+}
+
+/* Inactive device warning bar (yellow) */
+.pw-allowlist-warn-bar {
+    background-color: rgba(255, 194, 14, 0.1);
+    border-left: 4px solid var(--pw-yellow);
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 0.88rem;
+    color: var(--pw-text);
+}
+.pw-allowlist-warn-bar a {
+    color: var(--pw-yellow);
+    text-decoration: underline;
+}
+
+/* Empty allowlist info bar (muted blue-grey) */
+.pw-allowlist-info-bar {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-left: 4px solid var(--pw-text-muted);
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 0.88rem;
+    color: var(--pw-text-muted);
+}
+
+/* Risky warning box inside the Add/Edit modal */
+.pw-allowlist-risky-box {
+    background-color: rgba(255, 194, 14, 0.1);
+    border: 1px solid var(--pw-yellow);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: var(--pw-text);
+}
+.pw-allowlist-risky-box i {
+    color: var(--pw-yellow);
+}
+
+/* Protocol badges (TCP / UDP) */
+.pw-proto-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.pw-proto-tcp {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: var(--pw-text-muted);
+    border: 1px solid var(--pw-border);
+}
+.pw-proto-udp {
+    background-color: rgba(166, 166, 166, 0.15);
+    color: var(--pw-text-muted);
+    border: 1px solid var(--pw-border);
+}
+
+/* "Required" expected-open badge */
+.pw-badge-required {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--pw-text);
+    color: var(--pw-text);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Truncated notes cell */
+.pw-notes-truncate {
+    display: inline-block;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Port hint line under the Port Number input */
+.pw-port-hint {
+    color: var(--pw-text-muted);
+    font-size: 0.78rem;
+}
+
+/* Copy modal preview table */
+.pw-copy-preview-table {
+    font-size: 0.83rem;
+}
+.pw-copy-preview-table th {
+    color: var(--pw-text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom-color: var(--pw-border);
+}
+
+/* Quick-filter tab buttons in the overview card header */
+.pw-filter-tab {
+    background-color: transparent;
+    border: 1px solid var(--pw-border);
+    color: var(--pw-text-muted);
+    font-size: 0.8rem;
+    padding: 3px 12px;
+    border-radius: 20px;
+}
+.pw-filter-tab:hover {
+    background-color: var(--pw-border);
+    color: var(--pw-text);
+}
+.pw-filter-tab.active {
+    background-color: var(--pw-red);
+    border-color: var(--pw-red);
+    color: #fff;
+}
+
+
+/* ================================================================== */
+/* 16. COMPONENT — RUN SCAN PAGE                                      */
+/* ================================================================== */
+
+/* Radio cards: selectable option cards with icon + label */
+.pw-scan-radio-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 20px;
+    min-width: 140px;
+    background-color: var(--pw-bg);
+    border: 2px solid var(--pw-border);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--pw-text-muted);
+    transition: border-color 0.15s, color 0.15s;
+    text-align: center;
+    user-select: none;
+}
+.pw-scan-radio-card:hover {
+    border-color: var(--pw-text-muted);
+    color: var(--pw-text);
+}
+.pw-scan-radio-card.selected {
+    border-color: var(--pw-red);
+    color: var(--pw-text);
+    background-color: rgba(176, 27, 38, 0.07);
+}
+
+/* Inline radio labels (port mode) */
+.pw-scan-radio-inline {
+    cursor: pointer;
+    color: var(--pw-text);
+    font-size: 0.9rem;
+}
+.pw-scan-radio-inline input[type="radio"] {
+    accent-color: var(--pw-red);
+}
+
+/* Device preview card inside the form */
+.pw-scan-device-preview {
+    background-color: var(--pw-bg);
+    border: 1px solid var(--pw-border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+}
+
+/* Nmap command display block */
+.pw-scan-cmd-block {
+    background-color: #0a0a0a;
+    border: 1px solid var(--pw-border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    overflow-x: auto;
+}
+.pw-scan-cmd-block code {
+    color: #7ec8e3;   /* pale blue — looks like a terminal */
+    white-space: pre;
+    flex: 1;
+}
+.pw-scan-cmd-copy {
+    flex-shrink: 0;
+}
+
+/* -sV flag badge in the scan options card */
+.pw-scan-flag {
+    background-color: var(--pw-bg);
+    border: 1px solid var(--pw-border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.8rem;
+    color: #7ec8e3;
+    font-family: 'Consolas', monospace;
+}
+
+/* Scan preview table (right column) */
+.pw-scan-preview-table {
+    font-size: 0.85rem;
+    color: var(--pw-text);
+}
+.pw-scan-preview-table td {
+    border: none;
+    padding: 4px 0;
+}
+
+/* Developer test card (dashed border) */
+.pw-scan-dev-card {
+    border: 1px dashed var(--pw-border) !important;
+    opacity: 0.85;
+}
+.pw-scan-dev-card .card-header {
+    background: transparent;
+    border-bottom: 1px dashed var(--pw-border);
+}
+
+
+/* ================================================================== */
+/* 17. COMPONENT — SCAN PROGRESS PAGE                                 */
+/* ================================================================== */
+
+/* The Bootstrap progress bar wrapper */
+.pw-scan-progress-bar-wrap {
+    background-color: var(--pw-border);
+    border-radius: 6px;
+}
+
+/* Stage stepper list */
+.pw-scan-stepper {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Individual stage step */
+.pw-scan-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9rem;
+}
+
+/* Step icon area (fixed width so labels align) */
+.pw-scan-step-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1rem;
+}
+
+/* Stage states */
+.pw-scan-step.done    { color: var(--pw-text); }
+.pw-scan-step.done    .pw-scan-step-icon { color: #4CAF50; }  /* green check */
+.pw-scan-step.current { color: var(--pw-text); font-weight: 600; }
+.pw-scan-step.current .pw-scan-step-icon { color: var(--pw-red); }
+.pw-scan-step.pending { color: var(--pw-text-muted); }
+
+/* "Scanning device X of N" indicator */
+.pw-scan-current-device {
+    background-color: rgba(176, 27, 38, 0.08);
+    border-left: 3px solid var(--pw-red);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: var(--pw-text);
+}
+
+
+/* ================================================================== */
+/* 18. COMPONENT — SCAN HISTORY                                       */
+/* ================================================================== */
+
+/* Stat card that acts as a clickable filter button */
+.pw-stat-card-clickable {
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.pw-stat-card-clickable:hover {
+    border-color: var(--pw-red);
+}
+
+/* Red dot before a scan ID when it has unacknowledged High findings */
+.pw-unack-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--pw-red);
+    margin-right: 5px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* Sortable column header */
+.pw-sortable {
+    user-select: none;
+    white-space: nowrap;
+}
+.pw-sortable:hover {
+    color: var(--pw-text);
+}
+.pw-sort-active {
+    color: var(--pw-text);
+}
+.pw-sort-arrow {
+    font-size: 0.7rem;
+    margin-left: 3px;
+    color: var(--pw-text-muted);
+}
+.pw-sort-active .pw-sort-arrow {
+    color: var(--pw-red);
+}
+
+/* Compact finding chips in the Findings column */
+.pw-chip {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-right: 2px;
+    white-space: nowrap;
+}
+
+
+/* ================================================================== */
+/* 20. COMPONENT — USER MANAGEMENT                                    */
+/* ================================================================== */
+
+/* Role badges */
+.pw-badge-role-admin {
+    display: inline-block;
+    background-color: var(--pw-red);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.pw-badge-role-viewer {
+    display: inline-block;
+    background: transparent;
+    border: 1px solid var(--pw-text-muted);
+    color: var(--pw-text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* "You" badge on current user's row */
+.pw-you-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--pw-red);
+    color: var(--pw-red);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+    line-height: 1.4;
+}
+
+/*
+ * Compact inline role selection cards — used in the Add/Edit User modal.
+ * Horizontal layout: icon + bold name + muted description on one line.
+ * Much shorter than the device radio cards to fit on a 1366×640 screen.
+ */
+.pw-user-role-card {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: var(--pw-bg);
+    border: 2px solid var(--pw-border);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--pw-text-muted);
+    transition: border-color 0.15s, color 0.15s;
+    user-select: none;
+    font-size: 0.88rem;
+}
+.pw-user-role-card:hover {
+    border-color: var(--pw-text-muted);
+    color: var(--pw-text);
+}
+.pw-user-role-card.selected {
+    border-color: var(--pw-red);
+    color: var(--pw-text);
+    background-color: rgba(176, 27, 38, 0.06);
+}
+.pw-user-role-card[disabled],
+.pw-user-role-card input:disabled ~ * {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/*
+ * Checkbox spacing fix — Bootstrap's .form-check puts the checkbox
+ * flush against its label by default. This class adds a readable gap.
+ * Apply to the <div class="form-check pw-check-gap"> wrapper.
+ */
+.pw-check-gap .form-check-input {
+    margin-right: 0.5rem;
+}
+.pw-check-gap .form-check-label {
+    padding-left: 0.25rem;
+}
+
+
+/* ================================================================== */
+/* 22. COMPONENT — AUDIT LOG                                          */
+/* ================================================================== */
+
+/*
+ * Blocked rows — subtle red left border so security events stand out
+ * without dominating the table visually.
+ */
+.pw-audit-blocked {
+    border-left: 3px solid var(--pw-red);
+}
+.pw-audit-blocked td:first-child {
+    padding-left: 9px;   /* compensate for the border so text stays aligned */
+}
+
+/* Result badges */
+.pw-audit-result-success {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--pw-text-muted);
+    color: var(--pw-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.pw-audit-result-blocked {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background-color: var(--pw-red);
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.pw-audit-result-failed {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background-color: var(--pw-yellow);
+    color: #1a1a1a;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Category badges — one colour per category */
+.pw-audit-cat-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid;
+}
+.pw-audit-cat-scans     { border-color: #5b9bd5; color: #5b9bd5; }
+.pw-audit-cat-findings  { border-color: #ffc20e; color: #ffc20e; }
+.pw-audit-cat-devices   { border-color: #4caf50; color: #4caf50; }
+.pw-audit-cat-allowlist { border-color: #9c7fe0; color: #9c7fe0; }
+.pw-audit-cat-users     { border-color: #56b6c2; color: #56b6c2; }
+.pw-audit-cat-reports   { border-color: #a6a6a6; color: #a6a6a6; }
+.pw-audit-cat-security  { border-color: var(--pw-red); color: var(--pw-red); }
+
+
+/* ================================================================== */
+/* 23. PRINT STYLES  (renumbered)                                     */
+/* These are already defined now and will be used when the Scan       */
+/* Results print feature is built. No changes needed later.           */
+/* ================================================================== */
+
+@media print {
+    /* Hide navigation and interactive elements */
+    .pw-topbar,
+    .pw-sidebar,
+    .pw-alert-banner,
+    .btn,
+    .btn-icon,
+    .pw-quick-actions {
+        display: none !important;
+    }
+
+    /* Reset layout — no offsets needed when bars are hidden */
+    .pw-content {
+        margin-top: 0 !important;
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Switch to white background with black text for legibility on paper */
+    body,
+    html {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    .card,
+    .pw-summary-card,
+    .pw-chart-card {
+        background-color: #ffffff !important;
+        border: 1px solid #cccccc !important;
+        break-inside: avoid;
+    }
+
+    .table > :not(caption) > * > * {
+        color: #000000 !important;
+        background-color: #ffffff !important;
+    }
+
+    a {
+        color: #000000 !important;
+        text-decoration: none !important;
+    }
+}

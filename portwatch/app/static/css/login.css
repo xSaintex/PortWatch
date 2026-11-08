@@ -1,0 +1,146 @@
+/*
+ * login.css
+ * Styles for the standalone login page only.
+ * Does NOT affect base_layout pages (no navbar/sidebar interference).
+ */
+
+/* ── Full-screen wrapper ── */
+.pw-login-body {
+    background-color: #0D0D0D;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+}
+
+.pw-login-wrapper {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* ── LEFT: dark brand panel ── */
+.pw-login-brand {
+    background-color: #1A1A1A;
+    flex: 0 0 45%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+    border-right: 1px solid #2A2A2A;
+}
+
+.pw-login-brand-inner {
+    text-align: center;
+    max-width: 320px;
+}
+
+.pw-login-logo {
+    width: 110px;
+    height: auto;
+    margin-bottom: 20px;
+}
+
+.pw-login-logo-text {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #B01B26;
+    display: block;
+    margin-bottom: 16px;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.pw-login-brand-name {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #FFFFFF;
+    margin-bottom: 12px;
+    letter-spacing: 0.02em;
+}
+
+.pw-login-tagline {
+    font-size: 0.9rem;
+    color: #A6A6A6;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── RIGHT: login form panel ── */
+.pw-login-form-panel {
+    flex: 1;
+    background-color: #0D0D0D;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+}
+
+.pw-login-card {
+    width: 100%;
+    max-width: 400px;
+}
+
+.pw-login-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin-bottom: 4px;
+}
+
+.pw-login-subtitle {
+    font-size: 0.9rem;
+    color: #A6A6A6;
+    margin-bottom: 24px;
+}
+
+.pw-login-label {
+    font-size: 0.88rem;
+    color: #FFFFFF;
+    font-weight: 500;
+    margin-bottom: 5px;
+    display: block;
+}
+
+/* Error alert inside the card */
+.pw-login-error {
+    background-color: rgba(176, 27, 38, 0.15);
+    border-left: 4px solid #B01B26;
+    border-radius: 6px;
+    padding: 12px 16px;
+    color: #FFFFFF;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+}
+
+/* ── Mobile: stack vertically ── */
+@media (max-width: 767px) {
+    .pw-login-wrapper {
+        flex-direction: column;
+    }
+
+    .pw-login-brand {
+        flex: 0 0 auto;
+        border-right: none;
+        border-bottom: 1px solid #2A2A2A;
+        padding: 28px 20px;
+    }
+
+    .pw-login-logo {
+        width: 72px;
+        margin-bottom: 12px;
+    }
+
+    .pw-login-brand-name {
+        font-size: 1.6rem;
+    }
+
+    .pw-login-tagline {
+        font-size: 0.82rem;
+    }
+
+    .pw-login-form-panel {
+        padding: 28px 20px;
+    }
+}

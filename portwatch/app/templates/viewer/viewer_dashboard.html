@@ -1,0 +1,223 @@
+{#
+  viewer/viewer_dashboard.html
+  Viewer Dashboard — read-only overview of scan findings.
+  Extends base_layout.html, active_page="dashboard".
+
+  EXPECTS from template context (provided by viewer_routes.py):
+    summary          — dict: registered_devices, open_ports_found,
+                       flagged_findings, high_risk_findings
+    recent_scans     — list of dicts from _build_recent_scans()
+    high_risk_count  — int: unacknowledged High findings (for alert banner)
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+{# Page header #}
+<h1 class="pw-page-title">Dashboard</h1>
+<p class="pw-page-subtitle">Latest scan findings for authorized lab devices.</p>
+
+
+{# ================================================================== #}
+{# 1. ALERT BANNER (viewer version — read-only, no acknowledge button) #}
+{# ================================================================== #}
+{% if high_risk_count and high_risk_count > 0 %}
+<div class="pw-alert-banner" role="alert" id="pw-viewer-high-risk-banner">
+  <i class="bi bi-exclamation-triangle-fill pw-alert-icon" aria-hidden="true"></i>
+  <span class="pw-alert-text">
+    <strong>{{ high_risk_count }} high-risk
+    {{ "finding" if high_risk_count == 1 else "findings" }}</strong>
+    found. An administrator has been notified to review
+    {{ "it" if high_risk_count == 1 else "them" }}.
+  </span>
+  <a href="{{ url_for('viewer.history') }}?unacknowledged=1&risk=High"
+     class="pw-alert-review"
+     aria-label="View scans with high-risk findings">
+    View scans <i class="bi bi-arrow-right" aria-hidden="true"></i>
+  </a>
+  <button class="pw-alert-close" aria-label="Dismiss"
+          onclick="document.getElementById('pw-viewer-high-risk-banner').style.display='none';">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endif %}
+
+
+{# ================================================================== #}
+{# 2. SUMMARY CARDS — same style as Admin Dashboard                   #}
+{# ================================================================== #}
+<div class="row g-3 mb-4">
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="pw-summary-card h-100">
+      <i class="bi bi-pc-display pw-summary-icon" aria-hidden="true"></i>
+      <div>
+        <div class="pw-summary-number">{{ summary.registered_devices }}</div>
+        <div class="pw-summary-label">Registered Devices</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="pw-summary-card h-100">
+      <i class="bi bi-door-open pw-summary-icon" aria-hidden="true"></i>
+      <div>
+        <div class="pw-summary-number">{{ summary.open_ports_found }}</div>
+        <div class="pw-summary-label">Open Ports Found</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="pw-summary-card h-100">
+      <i class="bi bi-flag pw-summary-icon" aria-hidden="true"></i>
+      <div>
+        <div class="pw-summary-number">{{ summary.flagged_findings }}</div>
+        <div class="pw-summary-label">Flagged Findings</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="pw-summary-card h-100">
+      <i class="bi bi-exclamation-octagon pw-summary-icon" aria-hidden="true"></i>
+      <div>
+        <div class="pw-summary-number pw-red">{{ summary.high_risk_findings }}</div>
+        <div class="pw-summary-label">High-Risk Findings</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+{# ================================================================== #}
+{# 3. RECENT SCANS TABLE                                               #}
+{# ================================================================== #}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Recent Scans</span>
+    <a href="{{ url_for('viewer.history') }}" class="text-muted small">
+      View all <i class="bi bi-arrow-right" aria-hidden="true"></i>
+    </a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="viewerRecentScans">
+        <thead>
+          <tr>
+            <th scope="col">Scan ID</th>
+            <th scope="col">Device</th>
+            <th scope="col">IP Address</th>
+            <th scope="col">Scanned At</th>
+            <th scope="col">Highest Risk</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scan in recent_scans %}
+          {#
+            Row click → Viewer Scan Results page.
+            Actions cell stops propagation so the icons don't double-fire.
+          #}
+          <tr class="pw-viewer-scan-row"
+              data-view-url="{{ url_for('viewer.scan_results', scan_id=scan.scan_id) }}"
+              style="cursor:pointer;">
+
+            {# Scan ID #}
+            <td class="pw-mono">{{ scan.scan_id }}</td>
+
+            {# Device name + lab in muted text below #}
+            <td>
+              <div class="fw-semibold small">{{ scan.device_name }}</div>
+              {# lab_location not in the dict from _build_recent_scans, fall back gracefully #}
+              {% if scan.get("lab_location") %}
+                <div class="pw-text-muted" style="font-size:0.75rem;">{{ scan.lab_location }}</div>
+              {% endif %}
+            </td>
+
+            {# IP address — monospace #}
+            <td class="pw-mono">{{ scan.ip }}</td>
+
+            {# Scanned At #}
+            <td class="small">
+              {{ scan.scan_date.strftime("%d %b %Y, %H:%M") if scan.scan_date else '—' }}
+            </td>
+
+            {# Highest Risk badge #}
+            <td>
+              {% if scan.highest_risk == "High" %}
+                <span class="badge-risk-high">High</span>
+              {% elif scan.highest_risk == "Medium" %}
+                <span class="badge-risk-medium">Medium</span>
+              {% elif scan.highest_risk == "Low" %}
+                <span class="badge-risk-low">Low</span>
+              {% else %}
+                <span class="badge-risk-none">None</span>
+              {% endif %}
+            </td>
+
+            {# Actions — stopPropagation so row click doesn't also fire #}
+            <td onclick="event.stopPropagation();">
+              <div class="d-flex gap-1">
+                {# Eye — View scan results #}
+                <a href="{{ url_for('viewer.scan_results', scan_id=scan.scan_id) }}"
+                   class="btn-icon"
+                   data-bs-toggle="tooltip"
+                   data-bs-placement="top"
+                   title="View scan results"
+                   aria-label="View results for {{ scan.scan_id }}">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                </a>
+                {# PDF — download report #}
+                <a href="{{ url_for('viewer.scan_report_pdf', scan_id=scan.scan_id) }}"
+                   class="btn-icon"
+                   data-bs-toggle="tooltip"
+                   data-bs-placement="top"
+                   title="Print PDF"
+                   aria-label="Download PDF report for {{ scan.scan_id }}">
+                  <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                </a>
+              </div>
+            </td>
+
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" class="text-center pw-text-muted py-4">
+              No scans have been run yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  /*
+   * Row-click handler — navigate to Scan Results when clicking anywhere
+   * on a row except inside the Actions cell (which has its own stopPropagation).
+   * Uses event delegation so it works reliably without per-row listeners.
+   */
+  document.addEventListener("DOMContentLoaded", function () {
+    const tbody = document.querySelector("#viewerRecentScans tbody");
+    if (!tbody) return;
+
+    tbody.addEventListener("click", function (event) {
+      const row = event.target.closest(".pw-viewer-scan-row");
+      if (!row) return;
+      // Ignore clicks that already hit a link or button
+      if (event.target.closest("a, button")) return;
+      const url = row.dataset.viewUrl;
+      if (url) window.location.href = url;
+    });
+  });
+</script>
+{% endblock %}

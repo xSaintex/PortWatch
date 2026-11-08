@@ -1,0 +1,66 @@
+{#
+  admin/components/admin_allowlist_delete_modal.html
+  Confirmation modal for removing a port from a device's allowlist.
+  JS fills in port, protocol, service, device name, and the form action
+  from data-* attributes on the trigger (trash) button.
+
+  BUG FIX NOTE:
+    The Cancel button must be OUTSIDE the <form> (or use type="button"
+    inside it) so clicking Cancel does not accidentally submit the DELETE
+    form. We keep Cancel outside the form entirely to be safe.
+#}
+
+<div class="modal fade" id="deleteEntryModal" tabindex="-1"
+     aria-labelledby="deleteEntryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content pw-modal-content">
+
+      <div class="modal-header pw-modal-header">
+        <h5 class="modal-title" id="deleteEntryModalLabel">
+          <i class="bi bi-exclamation-triangle-fill pw-modal-warn-icon me-2"
+             aria-hidden="true"></i>
+          Remove Approved Port
+        </h5>
+        <button type="button" class="pw-modal-close"
+                data-bs-dismiss="modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-body pw-modal-body">
+        <p class="pw-modal-delete-text">
+          Remove port
+          <strong>
+            <span id="deleteEntryPort" class="pw-mono"></span>/<span id="deleteEntryProtocol"></span>
+          </strong>
+          (<span id="deleteEntryService" class="pw-mono"></span>)
+          from <strong><span id="deleteEntryDevice"></span></strong>'s allowlist?
+        </p>
+        <p class="pw-text-muted small mb-0">
+          If this port is found open in future scans, it will be flagged as
+          <strong>Unexpected</strong>.
+        </p>
+      </div>
+
+      {#
+        Footer layout: Cancel button is a plain Bootstrap dismiss button (outside
+        the POST form), and the Remove button is the only submit inside the form.
+        This prevents Cancel from accidentally triggering the POST.
+      #}
+      <div class="modal-footer pw-modal-footer d-flex gap-2 justify-content-end">
+        {# Cancel — not inside the form, so it never triggers a POST #}
+        <button type="button" class="btn btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+
+        {# Delete form — only wraps the Remove button #}
+        <form id="deleteEntryForm" method="POST" action="#">
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1" aria-hidden="true"></i>
+            Remove Port
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>

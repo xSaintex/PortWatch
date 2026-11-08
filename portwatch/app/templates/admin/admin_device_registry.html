@@ -1,0 +1,378 @@
+{#
+  admin/admin_device_registry.html
+  The Device Registry page — lists all lab devices authorized for scanning.
+  Extends the shared base layout.
+
+  EXPECTS from the template context (provided by admin_routes.py):
+    devices           — list of device dicts from admin_devices_mock.py
+    lab_locations     — list of unique lab name strings for the filter dropdown
+    active_page       — "devices" (for navbar highlighting)
+    open_device_modal — True when the server re-renders after a validation error
+    form_errors       — dict of field_name -> error message (empty on fresh load)
+    form_data         — dict of the values the user typed (empty on fresh load)
+#}
+{% extends "base/base_layout.html" %}
+
+{% block title %}Device Registry{% endblock %}
+
+
+{% block content %}
+
+{# ================================================================== #}
+{# 1. PAGE HEADER ROW                                                 #}
+{# Title on the left, "Add Device" button on the right               #}
+{# ================================================================== #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="pw-page-title">Device Registry</h1>
+    <p class="pw-page-subtitle mb-0">
+      Lab devices authorized for scanning.
+      Only active registered devices can be scanned.
+    </p>
+  </div>
+  {# Opens the Add Device modal (title/action set by JS to "add" mode) #}
+  <button
+    class="btn btn-primary"
+    data-bs-toggle="modal"
+    data-bs-target="#deviceFormModal"
+    data-mode="add"
+    aria-label="Add a new device"
+  >
+    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+    Add Device
+  </button>
+</div>
+
+
+{# ================================================================== #}
+{# 2. FILTER BAR                                                      #}
+{# Search + dropdowns — all filtering is client-side via JS           #}
+{# ================================================================== #}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-center">
+
+      {# Search input #}
+      <div class="col-12 col-md-4">
+        <div class="pw-search-wrap">
+          <i class="bi bi-search pw-search-icon" aria-hidden="true"></i>
+          <input
+            type="text"
+            id="deviceSearch"
+            class="form-control pw-input pw-search-input"
+            placeholder="Search by name or IP…"
+            aria-label="Search devices by name or IP address"
+          />
+        </div>
+      </div>
+
+      {# Lab / Location filter #}
+      <div class="col-6 col-md-3">
+        <select id="filterLab" class="form-select pw-input" aria-label="Filter by lab">
+          <option value="">All Labs</option>
+          {% for loc in lab_locations %}
+            <option value="{{ loc }}">{{ loc }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# Status filter #}
+      <div class="col-6 col-md-2">
+        <select id="filterStatus" class="form-select pw-input" aria-label="Filter by status">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+
+      {# Clear filters — "Showing X of Y" is displayed by the pagination component below the table #}
+      <div class="col-12 col-md-3 d-flex align-items-center justify-content-md-end">
+        <button id="clearFilters" class="pw-clear-btn" type="button">
+          Clear filters
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{# ================================================================== #}
+{# 4. DEVICES TABLE                                                   #}
+{# ================================================================== #}
+
+{% if devices %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="devicesTable">
+        <thead>
+          <tr>
+            <th scope="col">Device</th>
+            <th scope="col">IP Address</th>
+            <th scope="col">Lab / Location</th>
+            <th scope="col">Allowlisted Ports</th>
+            <th scope="col">Last Scanned</th>
+            <th scope="col">Last Result</th>
+            <th scope="col">Status</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="devicesTableBody">
+
+          {% for device in devices %}
+          {#
+            Each row carries data-* attributes used by the JS filter
+            and by the Edit/Delete modal prefill logic.
+          #}
+          <tr
+            class="pw-device-row {% if device.status == 'inactive' %}pw-row-inactive{% endif %}{% if new_device_id and device.id == new_device_id %} row-new-device{% endif %}"
+            data-name="{{ device.name | lower }}"
+            data-ip="{{ device.ip_address | lower }}"
+            data-lab="{{ device.lab_location | lower }}"
+            data-status="{{ device.status }}"
+            data-device-id="{{ device.id }}"
+          >
+
+            {# Device name (bold) + type (small muted below) #}
+            <td>
+              <div class="pw-device-name">
+                {{ device.name }}
+                {% if new_device_id and device.id == new_device_id %}
+                  <span class="badge-new-device ms-1">NEW</span>
+                {% endif %}
+              </div>
+              <div class="pw-device-type">{{ device.device_type }}</div>
+            </td>
+
+            {# IP address — monospace #}
+            <td class="pw-mono">{{ device.ip_address }}</td>
+
+            {# Lab / Location #}
+            <td>{{ device.lab_location }}</td>
+
+            {# Allowlisted port count — yellow warning if 0 #}
+            <td>
+              {% if device.allowlisted_port_count == 0 %}
+                <span class="pw-ports-none">None set</span>
+              {% else %}
+                {{ device.allowlisted_port_count }} port{{ "s" if device.allowlisted_port_count != 1 }}
+              {% endif %}
+            </td>
+
+            {# Last scanned date/time or "Never" #}
+            <td>
+              {% if device.last_scanned %}
+                {{ device.last_scanned.strftime("%d %b %Y, %H:%M") }}
+              {% else %}
+                <span class="pw-text-muted">Never</span>
+              {% endif %}
+            </td>
+
+            {# Last result badge #}
+            <td>
+              {% if device.last_scanned is none %}
+                <span class="pw-text-muted">—</span>
+              {% elif device.last_highest_risk == "High" %}
+                <span class="badge-risk-high">High</span>
+              {% elif device.last_highest_risk == "Medium" %}
+                <span class="badge-risk-medium">Medium</span>
+              {% elif device.last_highest_risk == "Low" %}
+                <span class="badge-risk-low">Low</span>
+              {% else %}
+                <span class="badge-risk-none">None</span>
+              {% endif %}
+            </td>
+
+            {# Status indicator #}
+            <td>
+              {% if device.status == "active" %}
+                <span class="pw-status-active">
+                  <span class="pw-status-dot" aria-hidden="true"></span>
+                  Active
+                </span>
+              {% else %}
+                <span class="pw-status-inactive">Inactive</span>
+              {% endif %}
+            </td>
+
+            {# Action buttons #}
+            <td>
+              <div class="d-flex gap-1 flex-wrap">
+
+                {# Scan button — disabled if device is inactive #}
+                {% if device.status == "active" %}
+                  <a
+                    href="{{ url_for('admin.scan') }}?device_id={{ device.id }}"
+                    class="btn-icon"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="Scan this device"
+                    aria-label="Scan {{ device.name }}"
+                  >
+                    <i class="bi bi-radar" aria-hidden="true"></i>
+                  </a>
+                {% else %}
+                  <button
+                    class="btn-icon"
+                    disabled
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="Activate device to scan"
+                    aria-label="Device inactive — cannot scan"
+                  >
+                    <i class="bi bi-radar" aria-hidden="true"></i>
+                  </button>
+                {% endif %}
+
+                {# Manage Allowlist button #}
+                <a
+                  href="{{ url_for('admin.allowlist') }}?device_id={{ device.id }}"
+                  class="btn-icon"
+                  data-bs-toggle="tooltip"
+                  data-bs-placement="top"
+                  title="Manage Allowlist"
+                  aria-label="Manage allowlist for {{ device.name }}"
+                >
+                  <i class="bi bi-shield-check" aria-hidden="true"></i>
+                </a>
+
+                {#
+                  Edit button — carries data-* attributes so JS can prefill
+                  the shared modal with this device's current values.
+                #}
+                <button
+                  class="btn-icon"
+                  data-bs-toggle="modal"
+                  data-bs-target="#deviceFormModal"
+                  data-mode="edit"
+                  data-device-id="{{ device.id }}"
+                  data-device-name="{{ device.name }}"
+                  data-device-ip="{{ device.ip_address }}"
+                  data-device-lab="{{ device.lab_location }}"
+                  data-device-type="{{ device.device_type }}"
+                  data-device-status="{{ device.status }}"
+                  data-device-notes="{{ device.notes }}"
+                  data-edit-url="{{ url_for('admin.devices_edit', device_id=device.id) }}"
+                  aria-label="Edit {{ device.name }}"
+                  data-bs-placement="top"
+                  title="Edit device"
+                >
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+
+                {# Toggle status (activate / deactivate) #}
+                <form
+                  method="POST"
+                  action="{{ url_for('admin.devices_toggle_status', device_id=device.id) }}"
+                  class="d-inline"
+                >
+                  <button
+                    type="submit"
+                    class="btn-icon"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="{{ 'Deactivate' if device.status == 'active' else 'Activate' }}"
+                    aria-label="{{ 'Deactivate' if device.status == 'active' else 'Activate' }} {{ device.name }}"
+                  >
+                    <i class="bi {{ 'bi-toggle-on' if device.status == 'active' else 'bi-toggle-off' }}" aria-hidden="true"></i>
+                  </button>
+                </form>
+
+                {#
+                  Delete button — carries data-* attributes so JS can fill
+                  the delete confirmation modal before showing it.
+                #}
+                <button
+                  class="btn-icon btn-icon-danger"
+                  data-bs-toggle="modal"
+                  data-bs-target="#deleteDeviceModal"
+                  data-device-id="{{ device.id }}"
+                  data-device-name="{{ device.name }}"
+                  data-device-ip="{{ device.ip_address }}"
+                  data-delete-url="{{ url_for('admin.devices_delete', device_id=device.id) }}"
+                  data-bs-placement="top"
+                  title="Delete device"
+                  aria-label="Delete {{ device.name }}"
+                >
+                  <i class="bi bi-trash" aria-hidden="true"></i>
+                </button>
+
+              </div>
+            </td>
+
+          </tr>
+          {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# Empty state shown by JS when filters match nothing #}
+<div id="noFilterResults" class="pw-empty-state" style="display: none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No devices match your filters.</p>
+  <button id="clearFilters2" class="btn btn-outline-secondary btn-sm" type="button">
+    Clear filters
+  </button>
+</div>
+
+{# Pagination controls — rendered by table_pagination.js #}
+<div id="devicesPagination" class="pw-pagination-wrap mt-3"></div>
+
+{% else %}
+
+{# ================================================================== #}
+{# EMPTY STATE — No devices registered at all                        #}
+{# ================================================================== #}
+<div class="pw-empty-state">
+  <i class="bi bi-pc-display pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No devices registered yet.</p>
+  <p class="pw-text-muted small">Add a lab device to start scanning.</p>
+  <button
+    class="btn btn-primary mt-2"
+    data-bs-toggle="modal"
+    data-bs-target="#deviceFormModal"
+    data-mode="add"
+  >
+    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+    Add Device
+  </button>
+</div>
+
+{% endif %}
+
+
+{# ================================================================== #}
+{# MODALS — included here at the bottom of the content block         #}
+{# ================================================================== #}
+{% include "admin/components/admin_device_form_modal.html" %}
+{% include "admin/components/admin_device_delete_modal.html" %}
+
+{% endblock %}
+
+
+{# ------------------------------------------------------------------ #}
+{# PAGE-SPECIFIC SCRIPT                                               #}
+{# ------------------------------------------------------------------ #}
+{% block extra_scripts %}
+<script>
+  // Total device count passed to JS for the "Showing X of Y" counter
+  window.totalDeviceCount = {{ devices | length }};
+
+  // When the server re-renders this page after a validation error,
+  // open_device_modal is True and we automatically open the modal so the
+  // user sees their errors without having to click "Add Device" again.
+  window.openDeviceModalOnLoad = {{ 'true' if open_device_modal else 'false' }};
+
+  // When a device was just added, the route appends ?new_device=<id>.
+  // JS uses this to: clear any active filters, ensure page 1 is shown,
+  // scroll the highlighted row into view, then remove the query param
+  // from the URL so a refresh does not repeat the highlight.
+  window.newDeviceId = {{ new_device_id | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/admin_device_registry.js') }}"></script>
+{% endblock %}

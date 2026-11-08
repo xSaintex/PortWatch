@@ -1,0 +1,47 @@
+{#
+  partials/flash_messages.html
+  Displays Flask flash messages as dismissible, styled alert boxes.
+  Included in base_layout.html so every page automatically shows flash messages.
+
+  Flask flash categories used in PortWatch:
+    "success"  — action completed (white left border, check icon)
+    "error"    — validation or not-found error (red left border, red tint)
+    "warning"  — advisory notice (yellow left border)
+
+  Flask's get_flashed_messages(with_categories=True) returns a list of
+  (category, message) tuples. Messages are consumed once shown — they
+  disappear on the next page load automatically.
+#}
+
+{# with_categories=True gives us (category, message) pairs #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="pw-flash-stack" role="alert" aria-live="polite">
+      {% for category, message in messages %}
+        <div class="pw-flash pw-flash-{{ category }}">
+
+          {# Icon changes based on category #}
+          {% if category == "success" %}
+            <i class="bi bi-check-circle-fill pw-flash-icon" aria-hidden="true"></i>
+          {% elif category == "error" %}
+            <i class="bi bi-x-circle-fill pw-flash-icon" aria-hidden="true"></i>
+          {% else %}
+            <i class="bi bi-exclamation-triangle-fill pw-flash-icon" aria-hidden="true"></i>
+          {% endif %}
+
+          <span class="pw-flash-text">{{ message | safe }}</span>
+
+          {# Dismiss button — hides just this one message #}
+          <button
+            class="pw-flash-close"
+            aria-label="Dismiss"
+            onclick="this.closest('.pw-flash').style.display='none';"
+          >
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
+
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}

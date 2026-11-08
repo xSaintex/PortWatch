@@ -1,0 +1,50 @@
+{#
+  admin/components/admin_user_delete_modal.html
+  Confirmation modal for deleting a user account.
+  JS fills in the user details and form action from the trigger button's data-*.
+#}
+<div class="modal fade" id="deleteUserModal" tabindex="-1"
+     aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content pw-modal-content">
+
+      <div class="modal-header pw-modal-header">
+        <h5 class="modal-title" id="deleteUserModalLabel">
+          <i class="bi bi-exclamation-triangle-fill pw-modal-warn-icon me-2"
+             aria-hidden="true"></i>
+          Delete User
+        </h5>
+        <button type="button" class="pw-modal-close"
+                data-bs-dismiss="modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-body pw-modal-body">
+        <p class="pw-modal-delete-text">
+          Delete <strong id="deleteUserFullName">this user</strong>
+          (<span class="pw-mono" id="deleteUserUsername"></span>)?
+          They will no longer be able to log in.
+          Their past actions will remain in the audit log.
+        </p>
+        <div class="pw-modal-tip">
+          <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>
+          To block access but keep the account, deactivate it instead.
+        </div>
+      </div>
+
+      <div class="modal-footer pw-modal-footer d-flex gap-2 justify-content-end">
+        {# Cancel is outside the form so it cannot accidentally submit #}
+        <button type="button" class="btn btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+        <form id="deleteUserForm" method="POST" action="#">
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1" aria-hidden="true"></i>
+            Delete User
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>

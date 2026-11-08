@@ -1,0 +1,129 @@
+{#
+  admin/components/admin_allowlist_copy_modal.html
+  Copy allowlist entries from another device modal.
+  JS populates the preview table when the user selects a source device.
+
+  EXPECTS from template context:
+    device      — current device dict
+    all_devices — full list (to exclude current device from the source select)
+#}
+
+<div class="modal fade" id="copyModal" tabindex="-1"
+     aria-labelledby="copyModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content pw-modal-content">
+
+      <div class="modal-header pw-modal-header pw-modal-header-compact">
+        <div class="d-flex align-items-center gap-2 flex-grow-1">
+          <i class="bi bi-files pw-modal-title-icon" aria-hidden="true"></i>
+          <div>
+            <h5 class="modal-title mb-0" id="copyModalLabel">
+              Copy Allowlist from Another Device
+            </h5>
+            <p class="pw-modal-subtitle mb-0">
+              Useful for lab PCs with the same setup.
+            </p>
+          </div>
+        </div>
+        <button type="button" class="pw-modal-close ms-2"
+                data-bs-dismiss="modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <form method="POST"
+            action="{{ url_for('admin.allowlist_copy', device_id=device.id) }}">
+        <div class="modal-body pw-modal-body pw-modal-body-compact">
+
+          {# Source device select #}
+          <div class="mb-3">
+            <label for="copySourceDevice" class="pw-form-label">
+              Copy entries from <span class="pw-required">*</span>
+            </label>
+            <select
+              class="form-select pw-input"
+              id="copySourceDevice"
+              name="source_device_id"
+              required
+            >
+              <option value="" disabled selected>Select a source device…</option>
+              {% for d in all_devices %}
+                {% if d.id != device.id %}
+                  <option value="{{ d.id }}">
+                    {{ d.name }} — {{ d.allowlisted_port_count }}
+                    {{ "entry" if d.allowlisted_port_count == 1 else "entries" }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+
+          {# Copy mode #}
+          <div class="mb-3">
+            <label class="pw-form-label">Copy Mode</label>
+            <div class="d-flex flex-column gap-2 mt-1">
+              <div class="form-check">
+                <input class="form-check-input" type="radio"
+                       name="copy_mode" id="modeMerge" value="merge" checked />
+                <label class="form-check-label" for="modeMerge">
+                  <strong>Merge</strong> — add entries that are not already on
+                  {{ device.name }}
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio"
+                       name="copy_mode" id="modeReplace" value="replace" />
+                <label class="form-check-label" for="modeReplace">
+                  <strong>Replace</strong> — remove {{ device.name }}'s current
+                  entries first, then copy all
+                </label>
+              </div>
+            </div>
+            {# Warning shown by JS when Replace is selected #}
+            <div id="replaceWarning" class="pw-allowlist-risky-box mt-2"
+                 style="display:none;">
+              <i class="bi bi-exclamation-triangle-fill me-2"
+                 aria-hidden="true"></i>
+              <strong>Replace</strong> will permanently delete all
+              {{ device.name }}'s current allowlist entries before copying.
+              This cannot be undone.
+            </div>
+          </div>
+
+          {# Preview table — populated by JS when a source is chosen #}
+          <div id="copyPreviewWrap" style="display:none;">
+            <div class="pw-form-label mb-2">Preview of entries to be copied</div>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 pw-copy-preview-table">
+                <thead>
+                  <tr>
+                    <th>Port</th>
+                    <th>Proto</th>
+                    <th>Service</th>
+                    <th>Expected</th>
+                  </tr>
+                </thead>
+                <tbody id="copyPreviewBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="copyPreviewEmpty" class="pw-text-muted small mt-2"
+               style="display:none;">
+            Selected device has no allowlist entries to copy.
+          </div>
+
+        </div>{# END modal-body #}
+
+        <div class="modal-footer pw-modal-footer">
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-files me-1" aria-hidden="true"></i>
+            Copy Entries
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>

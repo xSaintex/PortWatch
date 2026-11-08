@@ -1,0 +1,201 @@
+{#
+  partials/scan_history_table.html
+  Shared scan history table for both Admin and Viewer Scan History pages.
+  Included by admin_scan_history.html and viewer_scan_history.html.
+
+  EXPECTS from the template context:
+    scans          — list of annotated scan dicts (_changes, _unack_high)
+    job_counts     — Counter: job_id → number of devices in that job
+    results_url    — Jinja callable / endpoint name base (not used directly;
+                     url_for is called inline with the correct endpoint)
+    view_endpoint  — string: e.g. "admin.scan_results" or "viewer.scan_results"
+    pdf_endpoint   — string: e.g. "admin.scan_report_pdf" or "viewer.scan_report_pdf"
+#}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-compact mb-0" id="scansTable">
+        <thead>
+          <tr>
+            <th scope="col">Scan ID</th>
+            <th scope="col" class="pw-sortable" data-sort="device" aria-sort="none">
+              Device
+            </th>
+            <th scope="col">IP Address</th>
+            <th scope="col" class="pw-sortable pw-sort-active" data-sort="date"
+                data-dir="desc" aria-sort="descending">
+              Scanned At <span class="pw-sort-arrow">▼</span>
+            </th>
+            <th scope="col">Port Range</th>
+            <th scope="col">Open</th>
+            <th scope="col">Findings</th>
+            <th scope="col" class="pw-sortable" data-sort="risk" aria-sort="none">
+              Highest Risk <span class="pw-sort-arrow"></span>
+            </th>
+            <th scope="col">Changes</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="scansTableBody">
+
+          {% for s in scans %}
+          <tr
+            class="pw-scan-row"
+            data-scan-id="{{ s.id }}"
+            data-device="{{ s.device_name | lower }}"
+            data-ip="{{ s.ip_address | lower }}"
+            data-lab="{{ (s.lab_location or '') | lower }}"
+            data-device-id="{{ s.device_id }}"
+            data-risk="{{ s.summary.highest_risk if s.summary else 'None' }}"
+            data-date="{{ s.started_at.strftime('%Y-%m-%d') if s.started_at else '' }}"
+            data-unack="{{ '1' if s._unack_high > 0 else '0' }}"
+            data-view-url="{{ url_for(view_endpoint, scan_id=s.id) }}"
+            style="cursor:pointer;"
+          >
+
+            {# 1. Scan ID + unacknowledged dot #}
+            <td class="pw-mono" style="white-space:nowrap;">
+              {% if s._unack_high > 0 %}
+                <span class="pw-unack-dot"
+                      data-bs-toggle="tooltip"
+                      title="Has {{ s._unack_high }} unacknowledged high-risk finding{{ 's' if s._unack_high != 1 }}"
+                      aria-label="Unacknowledged high-risk findings"></span>
+              {% endif %}
+              {{ s.id }}
+            </td>
+
+            {# 2. Device name + lab + batch icon #}
+            <td>
+              <div class="fw-semibold">{{ s.device_name }}</div>
+              <div class="pw-text-muted" style="font-size:0.75rem;">
+                {{ s.lab_location or '—' }}
+                {% if s.job_id and job_counts.get(s.job_id, 0) > 1 %}
+                  <i class="bi bi-collection ms-1"
+                     data-bs-toggle="tooltip"
+                     title="Part of a {{ job_counts[s.job_id] }}-device scan"
+                     aria-hidden="true"></i>
+                {% endif %}
+              </div>
+            </td>
+
+            {# 3. IP #}
+            <td class="pw-mono">{{ s.ip_address }}</td>
+
+            {# 4. Scanned At + duration #}
+            <td style="white-space:nowrap;">
+              {{ s.started_at.strftime("%d %b %Y, %H:%M") if s.started_at else '—' }}
+              {% if s.duration_seconds %}
+                {% set dur = s.duration_seconds %}
+                <div class="pw-text-muted" style="font-size:0.75rem;">
+                  {% if dur >= 60 %}{{ dur // 60 }}m {{ dur % 60 }}s
+                  {% else %}{{ dur }}s{% endif %}
+                </div>
+              {% endif %}
+            </td>
+
+            {# 5. Port range #}
+            <td>
+              {% set ps = s.port_spec or 'top1000' %}
+              {% if ps == 'top1000' %}Top 1,000
+              {% elif ps | length > 20 %}
+                <span data-bs-toggle="tooltip" title="{{ ps }}">{{ ps[:17] }}…</span>
+              {% else %}{{ ps }}{% endif %}
+            </td>
+
+            {# 6. Open ports #}
+            <td>{{ s.summary.open_ports if s.summary else 0 }}</td>
+
+            {# 7. Findings chips #}
+            <td style="white-space:nowrap;">
+              {% if s.summary %}
+                {% set lc = s.summary.label_counts %}
+                {% if lc.Approved   > 0 %}<span class="pw-chip badge-label-approved">Approved {{ lc.Approved }}</span> {% endif %}
+                {% if lc.Unexpected > 0 %}<span class="pw-chip badge-label-unexpected">Unexpected {{ lc.Unexpected }}</span> {% endif %}
+                {% if lc.Risky      > 0 %}<span class="pw-chip badge-label-risky">Risky {{ lc.Risky }}</span> {% endif %}
+                {% if lc.Missing    > 0 %}<span class="pw-chip badge-label-missing">Missing {{ lc.Missing }}</span> {% endif %}
+              {% endif %}
+            </td>
+
+            {# 8. Highest Risk badge #}
+            <td>
+              {% set r = s.summary.highest_risk if s.summary else 'None' %}
+              {% if r == 'High' %}<span class="badge-risk-high">High</span>
+              {% elif r == 'Medium' %}<span class="badge-risk-medium">Medium</span>
+              {% elif r == 'Low' %}<span class="badge-risk-low">Low</span>
+              {% else %}<span class="badge-risk-none">None</span>{% endif %}
+            </td>
+
+            {# 9. Changes column #}
+            <td style="white-space:nowrap;">
+              {% set ch = s._changes %}
+              {% if ch.is_first_scan %}
+                <span class="pw-text-muted small">First scan</span>
+              {% elif not ch.has_changes %}
+                <span class="pw-text-muted small">No changes</span>
+              {% else %}
+                {% set tooltip_parts = [] %}
+                {% if ch.newly_opened %}
+                  {% set _ = tooltip_parts.append("Opened: " + (ch.newly_opened | map(attribute='port') | map('string') | list | join('/tcp, ') + '/tcp')) %}
+                {% endif %}
+                {% if ch.closed %}
+                  {% set _ = tooltip_parts.append("Closed: " + (ch.closed | map(attribute='port') | map('string') | list | join('/tcp, ') + '/tcp')) %}
+                {% endif %}
+                {% if ch.service_changed %}
+                  {% for c in ch.service_changed %}
+                    {% set _ = tooltip_parts.append(c.port | string + "/" + c.protocol + " (" + c.old_version + " → " + c.new_version + ")") %}
+                  {% endfor %}
+                {% endif %}
+                <span data-bs-toggle="tooltip" title="{{ tooltip_parts | join(' · ') }}">
+                  {% if ch.newly_opened %}
+                    <span style="color:var(--pw-red);">+{{ ch.newly_opened | length }} opened</span>
+                  {% endif %}
+                  {% if ch.closed %}
+                    <span class="pw-text-muted ms-1">−{{ ch.closed | length }} closed</span>
+                  {% endif %}
+                  {% if ch.service_changed %}
+                    <span style="color:var(--pw-yellow);" class="ms-1">{{ ch.service_changed | length }} changed</span>
+                  {% endif %}
+                </span>
+              {% endif %}
+            </td>
+
+            {# 10. Actions #}
+            <td class="row-actions" onclick="event.stopPropagation();" style="white-space:nowrap;">
+              <div class="d-flex gap-1">
+                <a href="{{ url_for(view_endpoint, scan_id=s.id) }}"
+                   class="btn-icon"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="View scan results"
+                   aria-label="View results for {{ s.id }}">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                </a>
+                <a href="{{ url_for(pdf_endpoint, scan_id=s.id) }}"
+                   class="btn-icon"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Print PDF"
+                   aria-label="Download PDF report for {{ s.id }}">
+                  <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                </a>
+              </div>
+            </td>
+
+          </tr>
+          {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# No-filter-match empty state #}
+<div id="noFilterResults" class="pw-empty-state mt-3" style="display:none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No scans match your filters.</p>
+  <button type="button" id="clearFilters2"
+          class="btn btn-outline-secondary btn-sm">Clear filters</button>
+</div>
+
+{# Pagination mount point — 10 rows per page #}
+<div id="scansPagination" class="pw-pagination-wrap mt-3"></div>

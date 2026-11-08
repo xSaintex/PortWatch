@@ -1,0 +1,231 @@
+{#
+  admin/admin_scan_progress.html
+  Scan progress page — shows live stage updates while a scan runs.
+  JS polls /admin/scan/status/<job_id> every second and updates the page.
+  Extends base_layout.html.
+
+  EXPECTS from template context:
+    job    — the scan job dict from scan_job_manager.py
+    stages — the STAGES list (stage names) from scan_job_manager.py
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}Scan Progress{% endblock %}
+
+{% block content %}
+
+{# ================================================================== #}
+{# PAGE HEADER                                                         #}
+{# ================================================================== #}
+<div class="mb-3">
+  <h1 class="pw-page-title" id="progressTitle">
+    {% if job.status == 'completed' %}Scan Complete
+    {% elif job.status == 'failed' %}Scan Failed
+    {% else %}Scan in Progress{% endif %}
+  </h1>
+  <p class="pw-page-subtitle mb-0" id="progressSubtitle">
+    {% if job.devices_total == 1 %}
+      {{ job.devices[0].name }} ({{ job.devices[0].ip_address }})
+    {% else %}
+      {{ job.devices_total }} devices
+    {% endif %}
+  </p>
+</div>
+
+
+{# ================================================================== #}
+{# MAIN CONTENT                                                        #}
+{# ================================================================== #}
+<div class="row g-3">
+
+  {# ---- Left: progress stepper ---- #}
+  <div class="col-12 col-lg-6">
+    <div class="card">
+      <div class="card-body">
+
+        {# Progress bar #}
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="small pw-text-muted" id="progressLabel">Starting…</span>
+          <span class="small pw-text-muted" id="progressPct">0%</span>
+        </div>
+        <div class="progress mb-3 pw-scan-progress-bar-wrap" style="height:10px;">
+          <div class="progress-bar bg-danger" id="progressBar"
+               role="progressbar"
+               style="width: {{ job.percent }}%;"
+               aria-valuenow="{{ job.percent }}"
+               aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+
+        {# Leave-page notice #}
+        <p class="pw-text-muted small mb-3">
+          <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+          You can leave this page. The scan will continue and appear in Scan History.
+        </p>
+
+        {# Stage stepper #}
+        <ol class="pw-scan-stepper" id="stageStepper">
+          {% for stage in stages %}
+          <li class="pw-scan-step
+              {% if loop.index0 < job.stage_index %}done
+              {% elif loop.index0 == job.stage_index %}current
+              {% else %}pending{% endif %}"
+              data-stage-index="{{ loop.index0 }}">
+            <span class="pw-scan-step-icon">
+              {% if loop.index0 < job.stage_index %}
+                <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+              {% elif loop.index0 == job.stage_index %}
+                <span class="spinner-border spinner-border-sm"
+                      role="status" aria-hidden="true"></span>
+              {% else %}
+                <i class="bi bi-circle" aria-hidden="true"></i>
+              {% endif %}
+            </span>
+            <span class="pw-scan-step-label">{{ stage }}</span>
+          </li>
+          {% endfor %}
+        </ol>
+
+        {# Current device indicator (multi-device scans) #}
+        {% if job.devices_total > 1 %}
+        <div class="pw-scan-current-device mt-3" id="currentDeviceWrap"
+             style="{% if not job.current_device %}display:none;{% endif %}">
+          <i class="bi bi-radar me-2 pw-text-muted" aria-hidden="true"></i>
+          <span id="currentDeviceText">
+            {% if job.current_device %}{{ job.current_device }}{% endif %}
+          </span>
+        </div>
+        {% endif %}
+
+        {# Error box (shown when status == failed) #}
+        <div id="errorBox" class="pw-flash pw-flash-error mt-3"
+             style="{% if job.status != 'failed' %}display:none;{% endif %}">
+          <i class="bi bi-x-circle-fill pw-flash-icon"></i>
+          <span id="errorText">{{ job.error or '' }}</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  {# ---- Right: devices done list (multi-device) ---- #}
+  <div class="col-12 col-lg-6" id="devicesDoneCol"
+       style="{% if job.devices_total == 1 %}display:none;{% endif %}">
+    <div class="card">
+      <div class="card-header">
+        Devices completed
+        <span class="pw-text-muted ms-1" id="devicesDoneCount">
+          ({{ job.devices_done | length }} / {{ job.devices_total }})
+        </span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-compact table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Device</th>
+                <th>Open</th>
+                <th>Flagged</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody id="devicesDoneBody">
+              {% for d in job.devices_done %}
+              <tr>
+                <td>
+                  <div class="fw-semibold small">{{ d.device_name }}</div>
+                  <div class="pw-mono pw-text-muted" style="font-size:0.75rem;">{{ d.ip_address }}</div>
+                </td>
+                <td class="small">{{ d.summary.open_ports }}</td>
+                <td class="small">{{ d.summary.flagged }}</td>
+                <td>
+                  {% set r = d.summary.highest_risk %}
+                  {% if r == 'High' %}<span class="badge-risk-high">High</span>
+                  {% elif r == 'Medium' %}<span class="badge-risk-medium">Medium</span>
+                  {% elif r == 'Low' %}<span class="badge-risk-low">Low</span>
+                  {% else %}<span class="badge-risk-none">None</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>{# end row #}
+
+
+{# ================================================================== #}
+{# RESULTS SUMMARY (rendered by JS when scan completes)               #}
+{# ================================================================== #}
+<div id="resultsSummary" style="display:none;" class="mt-3">
+
+  {# Summary stat cards #}
+  <div class="row g-2 mb-3" id="resultStatCards"></div>
+
+  {# High-risk alert banner #}
+  <div id="resultsHighRiskBanner" class="pw-alert-banner mb-3" style="display:none;">
+    <i class="bi bi-exclamation-triangle-fill pw-alert-icon" aria-hidden="true"></i>
+    <span class="pw-alert-text" id="resultsHighRiskText"></span>
+  </div>
+
+  {# Results table (for multi-device) #}
+  <div id="resultsTableWrap" class="card mb-3" style="display:none;">
+    <div class="card-header">Scan Results by Device</div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-compact mb-0" id="resultsTable">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>IP</th>
+              <th>Open</th>
+              <th>Approved</th>
+              <th>Unexpected</th>
+              <th>Risky</th>
+              <th>Missing</th>
+              <th>Risk</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="resultsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="resultsTablePagination" class="pw-pagination-wrap mt-2 mb-3"></div>
+
+  {# Action buttons #}
+  <div class="d-flex gap-3 flex-wrap" id="resultsActions">
+    <a id="viewResultsBtn" href="{{ url_for('admin.history') }}"
+       class="btn btn-primary">
+      <i class="bi bi-eye me-1" aria-hidden="true"></i>
+      View Scan History
+    </a>
+    <a href="{{ url_for('admin.scan') }}"
+       class="btn btn-outline-secondary">
+      <i class="bi bi-radar me-1" aria-hidden="true"></i>
+      Run Another Scan
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  window.scanProgressData = {
+    jobId:        {{ job.job_id | tojson }},
+    statusUrl:    "{{ url_for('admin.scan_status', job_id=job.job_id) }}",
+    historyUrl:   "{{ url_for('admin.history') }}",
+    scanUrl:      "{{ url_for('admin.scan') }}",
+    singleDevice: {{ 'true' if job.devices_total == 1 else 'false' }},
+    deviceName:   {{ job.devices[0].name | tojson if job.devices_total == 1 else 'null' }},
+    deviceId:     {{ job.devices[0].id   | tojson if job.devices_total == 1 else 'null' }},
+    totalStages:  {{ stages | length }},
+  };
+</script>
+<script src="{{ url_for('static', filename='js/admin_scan_progress.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,79 @@
+{#
+  viewer/viewer_scan_history.html
+  Viewer Scan History page — read-only, same look as Admin Scan History.
+  Reuses the shared filter and table partials.
+  No acknowledge, edit, delete, or Run Scan actions.
+
+  EXPECTS from template context (same as admin version):
+    scans         — list of annotated scan dicts
+    lab_locations — sorted lab names
+    total_scans   — int
+    prefill       — dict of filter values from query params
+    job_counts    — Counter
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}Scan History{% endblock %}
+
+{% block content %}
+
+{# Header — same style as admin, but Export CSV links to viewer route #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="pw-page-title">Scan History</h1>
+    <p class="pw-page-subtitle mb-0">
+      View scan records for authorized lab devices.
+      Filter, review changes, or export results.
+    </p>
+  </div>
+  <a id="exportCsvBtn"
+     href="{{ url_for('viewer.history_export_csv') }}"
+     class="btn btn-outline-secondary"
+     data-bs-toggle="tooltip"
+     title="Exports scans matching the current filters"
+     aria-label="Export filtered scans to CSV">
+    <i class="bi bi-download me-1" aria-hidden="true"></i>
+    Export CSV
+  </a>
+</div>
+
+{# Filter bar (shared with admin) #}
+{% include "partials/scan_history_filters.html" %}
+
+{# Table or empty state #}
+{% if scans %}
+  {# view_endpoint and pdf_endpoint tell the shared table partial which
+     routes to use for the eye and PDF icons. #}
+  {% with view_endpoint="viewer.scan_results", pdf_endpoint="viewer.scan_report_pdf" %}
+    {% include "partials/scan_history_table.html" %}
+  {% endwith %}
+{% else %}
+<div class="pw-empty-state">
+  <i class="bi bi-clock-history pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No scans yet.</p>
+  <p class="pw-text-muted small">No scan records are available.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  window.scanHistoryData = {
+    totalScans:   {{ total_scans }},
+    exportUrl:    "{{ url_for('viewer.history_export_csv') }}",
+    prefill: {
+      search:        {{ prefill.get('search', '') | tojson }},
+      deviceName:    {{ prefill.get('deviceName', '') | tojson }},
+      lab:           {{ prefill.lab | tojson }},
+      risk:          {{ prefill.risk | tojson }},
+      dateFrom:      {{ prefill.date_from | tojson }},
+      dateTo:        {{ prefill.date_to | tojson }},
+      unacknowledged: {{ 'true' if prefill.unacknowledged else 'false' }},
+    },
+  };
+</script>
+{# Reuse exactly the same JS — it reads URLs from data-* attributes in the table,
+   not from hard-coded admin paths, so it works for both roles. #}
+<script src="{{ url_for('static', filename='js/admin_scan_history.js') }}"></script>
+{% endblock %}

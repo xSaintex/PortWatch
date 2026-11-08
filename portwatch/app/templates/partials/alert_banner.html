@@ -1,0 +1,51 @@
+{#
+  partials/alert_banner.html
+  A dismissible high-risk alert banner.
+  Shown at the top of the dashboard ONLY when there are unacknowledged
+  high-risk findings (i.e., high_risk_count > 0).
+
+  Included in admin_dashboard.html via:
+    {% include "partials/alert_banner.html" %}
+
+  EXPECTS from the template context:
+    high_risk_count (int) — number of unacknowledged high-risk findings.
+    alert_scan_id (str)   — scan_id of the most recent affected scan,
+                             used to build the "Review" link.
+#}
+{% if high_risk_count and high_risk_count > 0 %}
+<div class="pw-alert-banner" role="alert" id="pw-high-risk-banner">
+
+    {# Warning icon #}
+    <i class="bi bi-exclamation-triangle-fill pw-alert-icon" aria-hidden="true"></i>
+
+    {# Alert message #}
+    <span class="pw-alert-text">
+        <strong>{{ high_risk_count }} new high-risk
+        {{ "finding" if high_risk_count == 1 else "findings" }}
+        </strong> need review.
+    </span>
+
+    {# "Review" link — links to Scan History filtered by unacknowledged High findings
+       so the admin sees all affected scans, not just one. #}
+    <a
+        href="{{ url_for('admin.history') }}?unacknowledged=1&risk=High"
+        class="pw-alert-review"
+        aria-label="Review high-risk findings in Scan History"
+    >
+        Review <i class="bi bi-arrow-right" aria-hidden="true"></i>
+    </a>
+
+    {# Dismiss button — hides the banner for the current page view only.    #}
+    {# The small onclick script is the minimum needed to dismiss; it does   #}
+    {# NOT store the dismissal anywhere, so the banner reappears on reload. #}
+    {# A persistent dismiss will be added when the database is built.       #}
+    <button
+        class="pw-alert-close"
+        aria-label="Dismiss alert"
+        onclick="document.getElementById('pw-high-risk-banner').style.display='none';"
+    >
+        <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
+
+</div>
+{% endif %}

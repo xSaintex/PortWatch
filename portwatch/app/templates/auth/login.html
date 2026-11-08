@@ -1,0 +1,152 @@
+{#
+  auth/login.html
+  Login page — standalone, does NOT extend base_layout (no navbar/sidebar).
+  Split-screen layout: dark brand panel on the left, login form on the right.
+  On mobile, brand panel stacks on top of the form.
+#}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In — PortWatch</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/portwatch_theme.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}"/>
+</head>
+<body class="pw-login-body">
+
+<div class="pw-login-wrapper">
+
+  {# ── LEFT: Brand panel ── #}
+  <div class="pw-login-brand">
+    <div class="pw-login-brand-inner">
+      {# Logo — fallback to SVG placeholder if the PNG is missing #}
+      {% set logo_png = url_for('static', filename='img/portwatch_logo/portwatch_logo.png') %}
+      <img src="{{ logo_png }}"
+           alt="PortWatch logo"
+           class="pw-login-logo"
+           onerror="this.style.display='none'; document.getElementById('pw-login-logo-fallback').style.display='block';">
+      <span id="pw-login-logo-fallback"
+            class="pw-login-logo-text"
+            style="display:none;">PW</span>
+
+      <h1 class="pw-login-brand-name">PortWatch</h1>
+      <p class="pw-login-tagline">
+        Open Port Assessment Tool<br>
+        for Authorized Laboratory Devices
+      </p>
+    </div>
+  </div>
+
+  {# ── RIGHT: Login form ── #}
+  <div class="pw-login-form-panel">
+    <div class="pw-login-card">
+
+      <h2 class="pw-login-title">Sign in</h2>
+      <p class="pw-login-subtitle">Use your PortWatch account</p>
+
+      {# Error alert (wrong password, inactive account) #}
+      {% if error %}
+      <div class="pw-login-error" role="alert">
+        <i class="bi bi-exclamation-circle-fill me-2" aria-hidden="true"></i>
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}" novalidate id="loginForm">
+        {# Preserve ?next= for post-login redirect #}
+        <input type="hidden" name="next" value="{{ next }}"/>
+
+        {# Username #}
+        <div class="mb-3">
+          <label for="loginUsername" class="pw-login-label">Username</label>
+          <input type="text" id="loginUsername" name="username"
+                 class="form-control pw-input"
+                 placeholder="e.g. admin"
+                 value="{{ request.form.get('username', '') }}"
+                 required
+                 autocomplete="username"
+                 autofocus/>
+        </div>
+
+        {# Password + show/hide toggle #}
+        <div class="mb-3">
+          <label for="loginPassword" class="pw-login-label">Password</label>
+          <div class="input-group">
+            <input type="password" id="loginPassword" name="password"
+                   class="form-control pw-input"
+                   placeholder="Your password"
+                   required
+                   autocomplete="current-password"/>
+            <button type="button"
+                    class="btn-icon border pw-show-hide-btn"
+                    data-target="loginPassword"
+                    aria-label="Show/hide password">
+              <i class="bi bi-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        {# Remember me #}
+        <div class="mb-4 form-check pw-check-gap">
+          <input class="form-check-input" type="checkbox"
+                 id="rememberMe" name="remember" value="1"/>
+          <label class="form-check-label pw-login-label" for="rememberMe">
+            Remember me
+          </label>
+        </div>
+
+        {# Submit #}
+        <button type="submit" class="btn btn-primary w-100" id="loginSubmitBtn">
+          <span id="loginBtnText">
+            <i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>
+            Sign In
+          </span>
+          <span id="loginBtnSpinner" class="d-none">
+            <span class="spinner-border spinner-border-sm me-1"
+                  role="status" aria-hidden="true"></span>
+            Signing in…
+          </span>
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+<script>
+  // Show/hide password toggle
+  document.querySelectorAll(".pw-show-hide-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const input = document.getElementById(btn.dataset.target);
+      if (!input) return;
+      const hide = input.type === "password";
+      input.type = hide ? "text" : "password";
+      const icon = btn.querySelector("i");
+      if (icon) {
+        icon.classList.toggle("bi-eye",      !hide);
+        icon.classList.toggle("bi-eye-slash", hide);
+      }
+    });
+  });
+
+  // Submit spinner
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) {
+    loginForm.addEventListener("submit", function () {
+      const btnText    = document.getElementById("loginBtnText");
+      const btnSpinner = document.getElementById("loginBtnSpinner");
+      const submitBtn  = document.getElementById("loginSubmitBtn");
+      if (submitBtn)  submitBtn.disabled = true;
+      if (btnText)    btnText.classList.add("d-none");
+      if (btnSpinner) btnSpinner.classList.remove("d-none");
+    });
+  }
+</script>
+</body>
+</html>

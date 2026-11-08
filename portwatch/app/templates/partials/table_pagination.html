@@ -1,0 +1,35 @@
+{#
+  partials/table_pagination.html
+  Reusable pagination controls for any PortWatch data table.
+
+  This partial is a structural placeholder only — the actual page buttons
+  are generated at runtime by table_pagination.js (initTablePagination).
+  Include it below any paginated table and give it a unique id.
+
+  USAGE IN A TEMPLATE:
+    1. Give your <table> a unique id, e.g. id="devicesTable".
+    2. Include this partial below the table card:
+         {% include "partials/table_pagination.html" %}
+       or render a div with the same id pattern yourself.
+    3. In your page's extra_scripts block, call:
+         initTablePagination("devicesTable", {
+             pageSize: 8,
+             itemWord: "devices",
+             paginationId: "devicesPagination"
+         });
+    The JS function does the rest — it reads the table rows, slices them
+    into pages, builds the controls, and hooks into the filter system.
+
+  STRUCTURE rendered by JS (for reference — do not hand-edit):
+    <div class="pw-pagination-wrap">
+      <span class="pw-pagination-info">Showing 1–8 of 20 devices</span>
+      <div class="pw-pagination-controls">
+        <button class="pw-page-btn" data-page="prev">‹</button>
+        <button class="pw-page-btn active" data-page="1">1</button>
+        ...
+        <button class="pw-page-btn" data-page="next">›</button>
+      </div>
+    </div>
+#}
+{# The div below is the mount point — JS fills it in. #}
+{# Each paginated table should have its own uniquely-id'd mount point. #}

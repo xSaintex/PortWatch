@@ -1,0 +1,84 @@
+{#
+  admin/components/admin_user_status_modal.html
+  Confirmation modal for activating or deactivating a user account.
+  JS fills in the action, user details, and POST form action from the
+  trigger button's data-* attributes (show.bs.modal + event.relatedTarget).
+
+  When ACTIVATING an ADMINISTRATOR, JS also shows the "Your Password" field
+  because activating an admin account is a privileged action — the same
+  re-authentication that guards creating or promoting to Administrator.
+#}
+<div class="modal fade" id="userStatusModal" tabindex="-1"
+     aria-labelledby="userStatusModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pw-modal-content">
+
+      <div class="modal-header pw-modal-header">
+        <h5 class="modal-title" id="userStatusModalLabel">
+          Deactivate User
+        </h5>
+        <button type="button" class="pw-modal-close"
+                data-bs-dismiss="modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-body pw-modal-body">
+        {# Body text set by JS #}
+        <p class="pw-modal-delete-text" id="userStatusModalBody">
+          Are you sure?
+        </p>
+
+        {#
+          Password field — shown only when activating an Administrator.
+          JS shows/hides it based on the target user's role and action direction.
+          Never pre-filled; cleared by JS each time the modal opens.
+        #}
+        <div id="statusAdminPasswordRow" style="display:none;">
+          <label for="statusAdminGrantPassword" class="pw-form-label">
+            Your Password <span class="pw-required">*</span>
+          </label>
+          <div class="input-group">
+            <input type="password" id="statusAdminGrantPassword"
+                   name="admin_grant_password"
+                   class="form-control pw-input"
+                   maxlength="64"
+                   placeholder="Your current password"
+                   autocomplete="current-password"/>
+            <button type="button" class="btn-icon border pw-show-hide-btn"
+                    data-target="statusAdminGrantPassword"
+                    aria-label="Show/hide password">
+              <i class="bi bi-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="form-text pw-form-hint mt-1">
+            Enter your own password to activate an Administrator account.
+          </div>
+          <div id="statusAdminGrantError" class="invalid-feedback d-block"
+               style="display:none !important;"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer pw-modal-footer d-flex gap-2 justify-content-end">
+        {# Cancel is outside the form so it cannot accidentally submit #}
+        <button type="button" class="btn btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+
+        {# The POST form — action and button label are set by JS #}
+        <form id="userStatusForm" method="POST" action="#">
+          {#
+            The password value from statusAdminGrantPassword must be included
+            in this form submission. JS copies it into this hidden field just
+            before the form submits so the server can verify it.
+          #}
+          <input type="hidden" id="statusAdminGrantHidden"
+                 name="admin_grant_password" value=""/>
+          <button type="submit" class="btn btn-danger" id="userStatusSubmitBtn">
+            Deactivate
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>

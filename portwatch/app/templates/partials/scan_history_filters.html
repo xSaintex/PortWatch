@@ -1,0 +1,96 @@
+{#
+  partials/scan_history_filters.html
+  Shared filter bar for both Admin and Viewer Scan History pages.
+  Included by admin_scan_history.html and viewer_scan_history.html.
+
+  EXPECTS from the template context:
+    prefill       — dict: q, lab, risk, date_from, date_to, unacknowledged
+    lab_locations — sorted list of unique lab name strings
+#}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-end" id="filterBar">
+
+      {# Search #}
+      <div class="col-12 col-md-4">
+        <label for="filterSearch" class="pw-form-label small">Search</label>
+        <div class="pw-search-wrap">
+          <i class="bi bi-search pw-search-icon" aria-hidden="true"></i>
+          <input type="text" id="filterSearch"
+                 class="form-control pw-input pw-search-input"
+                 placeholder="Device name or IP…"
+                 value="{{ prefill.get('search', '') or prefill.get('q', '') }}">
+        </div>
+      </div>
+
+      {# Lab #}
+      <div class="col-6 col-md-2">
+        <label for="filterLab" class="pw-form-label small">Lab</label>
+        <select id="filterLab" class="form-select pw-input">
+          <option value="">All labs</option>
+          {% for lab in lab_locations %}
+            <option value="{{ lab | lower }}"
+              {% if prefill.lab and prefill.lab == lab %}selected{% endif %}>
+              {{ lab }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# Risk #}
+      <div class="col-6 col-md-2">
+        <label for="filterRisk" class="pw-form-label small">Risk</label>
+        <select id="filterRisk" class="form-select pw-input">
+          <option value="">All</option>
+          {% for r in ["High","Medium","Low","None"] %}
+            <option value="{{ r }}"
+              {% if prefill.risk == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# Date From #}
+      <div class="col-6 col-md-1">
+        <label for="filterDateFrom" class="pw-form-label small">From</label>
+        <input type="date" id="filterDateFrom" class="form-control pw-input"
+               value="{{ prefill.date_from or '' }}">
+      </div>
+
+      {# Date To #}
+      <div class="col-6 col-md-1">
+        <label for="filterDateTo" class="pw-form-label small">To</label>
+        <input type="date" id="filterDateTo" class="form-control pw-input"
+               value="{{ prefill.date_to or '' }}">
+        <div id="dateError" class="pw-form-hint"
+             style="color:var(--pw-red); display:none; font-size:0.75rem;">
+          "To" must be on or after "From".
+        </div>
+      </div>
+
+      {# Right side controls #}
+      <div class="col-12 col-md-2 d-flex flex-column gap-2">
+        <div class="d-flex gap-1 flex-wrap">
+          <button type="button" class="btn btn-sm pw-filter-tab" id="quickToday">Today</button>
+          <button type="button" class="btn btn-sm pw-filter-tab" id="quickWeek">Last 7 days</button>
+          <button type="button" class="btn btn-sm pw-filter-tab" id="quickMonth">Last 30 days</button>
+        </div>
+        <div class="form-check pw-check-gap mb-0">
+          <input class="form-check-input" type="checkbox"
+                 id="filterUnack" value="1"
+                 {% if prefill.unacknowledged %}checked{% endif %}>
+          <label class="form-check-label small" for="filterUnack">
+            Unacknowledged only
+          </label>
+        </div>
+      </div>
+
+      {# Clear #}
+      <div class="col-12 mt-1">
+        <button type="button" id="clearFilters" class="pw-clear-btn">
+          Clear filters
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>

@@ -1,0 +1,385 @@
+<!--
+  reports/admin_scan_report_pdf.html
+  PDF-only template rendered by pdf_report_generator.py using xhtml2pdf.
+  NOT a web page — do not open it in the browser directly.
+
+  CSS LIMITATIONS OF xhtml2pdf:
+  xhtml2pdf uses the ReportLab PDF engine under the hood. It supports only a
+  small subset of CSS 2.1. What works:
+    - font-family, font-size, font-weight, color, background-color
+    - border, padding, margin, width (% and px)
+    - @page for page size and margins
+    - @font-face (not used here; we stick to safe fonts)
+  What does NOT work:
+    - flexbox / CSS grid (layout must use <table> elements)
+    - border-radius, box-shadow
+    - CSS variables (var(--name)) — values are hardcoded here
+    - position: fixed / sticky
+  All inline-safe CSS is placed in the <style> tag below.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    /* ---- Page setup ---- */
+    @page {
+      size: A4 portrait;
+      margin: 18mm 16mm 22mm 16mm;
+    }
+
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 9pt;
+      color: #111111;
+      background: #ffffff;
+    }
+
+    /* Page footer using xhtml2pdf's pdf:nextpage / pdf:pagenumber approach */
+    /* xhtml2pdf does NOT support @page named areas like @bottom-center.    */
+    /* We use a fixed-position footer div instead.                          */
+    .pdf-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      font-size: 7.5pt;
+      color: #666666;
+      text-align: center;
+      border-top: 0.5pt solid #cccccc;
+      padding-top: 3pt;
+    }
+
+    /* ---- Colours ---- */
+    .red  { color: #B01B26; }
+    .gray { color: #666666; }
+    .muted { color: #888888; }
+    .bold { font-weight: bold; }
+    .mono { font-family: Courier, monospace; font-size: 8.5pt; }
+
+    /* ---- Header ---- */
+    .pdf-header-table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
+    .pdf-logo-cell { width: 60pt; vertical-align: middle; }
+    .pdf-logo { height: 40pt; }
+    .pdf-title-cell { vertical-align: middle; padding-left: 10pt; }
+    .pdf-title { font-size: 18pt; font-weight: bold; color: #B01B26; margin: 0; }
+    .pdf-subtitle { font-size: 9pt; color: #555555; margin: 0; }
+    .pdf-meta-cell { text-align: right; vertical-align: bottom; font-size: 8pt; color: #555555; }
+
+    hr.red-rule { border: none; border-top: 2pt solid #B01B26; margin: 6pt 0 10pt 0; }
+
+    /* ---- Section heading ---- */
+    h2 {
+      font-size: 10pt;
+      font-weight: bold;
+      color: #B01B26;
+      border-bottom: 1pt solid #B01B26;
+      padding-bottom: 2pt;
+      margin: 10pt 0 5pt 0;
+    }
+
+    /* ---- Details table ---- */
+    .details-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+    .details-table td { padding: 2pt 6pt; vertical-align: top; font-size: 8.5pt; }
+    .details-table td.lbl { width: 28%; color: #555555; font-weight: bold; }
+    .details-table td.val { color: #111111; }
+
+    /* ---- Summary counts ---- */
+    .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+    .summary-table td {
+      padding: 3pt 6pt;
+      border: 1pt solid #dddddd;
+      text-align: center;
+      font-size: 8.5pt;
+    }
+    .summary-table th {
+      padding: 3pt 6pt;
+      background-color: #f0f0f0;
+      border: 1pt solid #dddddd;
+      font-size: 8pt;
+      color: #333333;
+    }
+
+    /* ---- Findings table ---- */
+    .findings-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+    .findings-table th {
+      background-color: #222222;
+      color: #ffffff;
+      font-size: 8pt;
+      padding: 3pt 5pt;
+      text-align: left;
+    }
+    .findings-table td {
+      font-size: 8pt;
+      padding: 3pt 5pt;
+      border-bottom: 0.5pt solid #dddddd;
+      vertical-align: top;
+    }
+    .findings-table tr.row-high   td { background-color: #fdf0f0; }
+    .findings-table tr.row-medium td { background-color: #fffdf0; }
+    .findings-table tr.row-none   td { background-color: #f9f9f9; }
+
+    .label-risky      { color: #B01B26; font-weight: bold; }
+    .label-unexpected { color: #aa6600; font-weight: bold; }
+    .label-missing    { color: #555555; font-style: italic; }
+    .label-approved   { color: #226622; }
+
+    .risk-high   { color: #B01B26; font-weight: bold; }
+    .risk-medium { color: #aa6600; font-weight: bold; }
+    .risk-low    { color: #555555; }
+
+    /* ---- Changes ---- */
+    .changes-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+    .changes-table td { padding: 3pt 6pt; vertical-align: top; font-size: 8.5pt; width: 33%; border-top: 1pt solid #dddddd; }
+    .changes-table th { padding: 3pt 6pt; font-size: 8.5pt; font-weight: bold; color: #555555; text-align: left; }
+
+    /* ---- Recommendations ---- */
+    .rec-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+    .rec-table td { padding: 3pt 6pt; font-size: 8pt; border-bottom: 0.5pt solid #eeeeee; vertical-align: top; }
+    .rec-table th { padding: 3pt 6pt; font-size: 8pt; background-color: #f5f5f5; color: #333333; text-align: left; }
+    .rec-port { width: 12%; font-family: Courier, monospace; }
+    .rec-finding { width: 20%; }
+    .rec-tip { width: 68%; }
+
+    /* Keep tables from splitting awkwardly across pages */
+    .findings-table tr { page-break-inside: avoid; }
+  </style>
+</head>
+<body>
+
+<!-- ================================================================ -->
+<!-- HEADER                                                            -->
+<!-- ================================================================ -->
+<table class="pdf-header-table">
+  <tr>
+    <td class="pdf-logo-cell">
+      {% if logo_path %}
+        <img src="{{ logo_path }}" class="pdf-logo" alt="PortWatch logo"/>
+      {% else %}
+        <span class="red bold" style="font-size:16pt;">PortWatch</span>
+      {% endif %}
+    </td>
+    <td class="pdf-title-cell">
+      <p class="pdf-title">Scan Report</p>
+      <p class="pdf-subtitle">{{ scan.device_name }} &mdash; {{ scan.ip_address }}</p>
+    </td>
+    <td class="pdf-meta-cell">
+      <b>{{ scan.id }}</b><br/>
+      Generated: {{ now.strftime("%d %b %Y %H:%M") }}<br/>
+      Generated by: Admin
+    </td>
+  </tr>
+</table>
+<hr class="red-rule"/>
+
+
+<!-- ================================================================ -->
+<!-- SCAN DETAILS                                                      -->
+<!-- ================================================================ -->
+<h2>Scan Details</h2>
+<table class="details-table">
+  <tr>
+    <td class="lbl">Device</td>
+    <td class="val bold">{{ scan.device_name }}</td>
+    <td class="lbl">IP Address</td>
+    <td class="val mono">{{ scan.ip_address }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Lab / Location</td>
+    <td class="val">{{ scan.lab_location or '—' }}</td>
+    <td class="lbl">Host Status</td>
+    <td class="val">{{ scan.host_status or 'up' }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Scanned At</td>
+    <td class="val">{{ scan.started_at.strftime("%d %b %Y, %H:%M") if scan.started_at else '—' }}</td>
+    <td class="lbl">Duration</td>
+    <td class="val">
+      {% if scan.duration_seconds %}
+        {% set dur = scan.duration_seconds %}
+        {% if dur >= 60 %}{{ dur // 60 }}m {{ dur % 60 }}s{% else %}{{ dur }}s{% endif %}
+      {% else %}—{% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td class="lbl">Port Range</td>
+    <td class="val">
+      {% if (scan.port_spec or 'top1000') == 'top1000' %}Top 1,000 TCP{% else %}{{ scan.port_spec }}{% endif %}
+    </td>
+    <td class="lbl">Scan ID</td>
+    <td class="val mono">{{ scan.id }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Nmap Command</td>
+    <td class="val mono" colspan="3">
+      nmap -sV
+      {% if (scan.port_spec or 'top1000') == 'top1000' %}--top-ports 1000{% else %}-p {{ scan.port_spec }}{% endif %}
+      {{ scan.ip_address }}
+    </td>
+  </tr>
+</table>
+
+
+<!-- ================================================================ -->
+<!-- SUMMARY                                                           -->
+<!-- ================================================================ -->
+<h2>Summary</h2>
+{% set lc = scan.summary.label_counts if scan.summary else {} %}
+{% set rc = scan.summary.risk_counts   if scan.summary else {} %}
+<table class="summary-table">
+  <tr>
+    <th>Open Ports</th>
+    <th>Approved</th>
+    <th>Unexpected</th>
+    <th>Risky</th>
+    <th>Missing</th>
+    <th>High Risk</th>
+    <th>Medium Risk</th>
+    <th>Low Risk</th>
+    <th>Highest Risk</th>
+  </tr>
+  <tr>
+    <td class="bold">{{ scan.summary.open_ports if scan.summary else 0 }}</td>
+    <td>{{ lc.get('Approved',   0) }}</td>
+    <td>{{ lc.get('Unexpected', 0) }}</td>
+    <td class="red">{{ lc.get('Risky',     0) }}</td>
+    <td>{{ lc.get('Missing',   0) }}</td>
+    <td class="risk-high">{{ rc.get('High',   0) }}</td>
+    <td class="risk-medium">{{ rc.get('Medium', 0) }}</td>
+    <td>{{ rc.get('Low',    0) }}</td>
+    <td class="
+      {% if scan.summary.highest_risk == 'High' %}risk-high
+      {% elif scan.summary.highest_risk == 'Medium' %}risk-medium
+      {% else %}{% endif %} bold">
+      {{ scan.summary.highest_risk if scan.summary else 'None' }}
+    </td>
+  </tr>
+</table>
+
+
+<!-- ================================================================ -->
+<!-- FINDINGS                                                          -->
+<!-- ================================================================ -->
+<h2>Findings</h2>
+{% if findings %}
+<table class="findings-table">
+  <thead>
+    <tr>
+      <th style="width:7%;">Port</th>
+      <th style="width:6%;">Proto</th>
+      <th style="width:12%;">Service</th>
+      <th style="width:12%;">Version</th>
+      <th style="width:11%;">Label</th>
+      <th style="width:8%;">Risk</th>
+      <th style="width:8%;">Status</th>
+      <th style="width:36%;">Reason</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in findings %}
+    <tr class="{% if f.risk_level == 'High' %}row-high{% elif f.risk_level == 'Medium' %}row-medium{% elif f.label == 'Approved' %}row-none{% endif %}">
+      <td class="mono bold">{{ f.port }}</td>
+      <td class="mono">{{ f.protocol | upper }}</td>
+      <td class="mono">{{ f.service }}</td>
+      <td class="muted mono">{{ f.version or '—' }}</td>
+      <td class="label-{{ f.label | lower }}">{{ f.label }}</td>
+      <td class="risk-{{ f.risk_level | lower if f.risk_level else 'none' }}">{{ f.risk_level or '—' }}</td>
+      <td class="muted">{% if f.acknowledged %}Acknowledged{% elif f.label == 'Approved' %}—{% else %}Open{% endif %}</td>
+      <td class="muted" style="font-size:7.5pt;">{{ f.reason or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No findings recorded for this scan.</p>
+{% endif %}
+
+
+<!-- ================================================================ -->
+<!-- CHANGES SINCE PREVIOUS SCAN                                       -->
+<!-- ================================================================ -->
+<h2>Changes Since Previous Scan</h2>
+{% if changes.is_first_scan %}
+  <p class="muted">This is the first scan recorded for this device.</p>
+{% else %}
+  {% if prev_scan %}
+    <p class="muted" style="font-size:8pt;">
+      Compared with {{ prev_scan.id }}
+      ({{ prev_scan.started_at.strftime("%d %b %Y") if prev_scan.started_at else '?' }})
+    </p>
+  {% endif %}
+  {% if not changes.has_changes %}
+    <p class="muted">No changes detected since the previous scan.</p>
+  {% else %}
+    <table class="changes-table">
+      <tr>
+        <th class="red">Newly Opened ({{ changes.newly_opened | length }})</th>
+        <th class="gray">Closed ({{ changes.closed | length }})</th>
+        <th style="color:#aa6600;">Service Changed ({{ changes.service_changed | length }})</th>
+      </tr>
+      <tr>
+        <td class="red">
+          {% for p in changes.newly_opened %}
+            {{ p.port }}/{{ p.protocol }} ({{ p.service }})<br/>
+          {% else %}
+            <span class="muted">None</span>
+          {% endfor %}
+        </td>
+        <td class="gray">
+          {% for p in changes.closed %}
+            {{ p.port }}/{{ p.protocol }} ({{ p.service }})<br/>
+          {% else %}
+            <span class="muted">None</span>
+          {% endfor %}
+        </td>
+        <td style="color:#aa6600;">
+          {% for c in changes.service_changed %}
+            {{ c.port }}/{{ c.protocol }}:
+            {% if c.old_version and c.new_version %}
+              {{ c.old_service }} {{ c.old_version }} → {{ c.new_service }} {{ c.new_version }}<br/>
+            {% else %}
+              {{ c.old_service }} → {{ c.new_service }}<br/>
+            {% endif %}
+          {% else %}
+            <span class="muted">None</span>
+          {% endfor %}
+        </td>
+      </tr>
+    </table>
+  {% endif %}
+{% endif %}
+
+
+<!-- ================================================================ -->
+<!-- RECOMMENDATIONS                                                   -->
+<!-- ================================================================ -->
+{% set rec_findings = findings | selectattr('recommendation') | list %}
+{% if rec_findings %}
+<h2>Recommendations</h2>
+<table class="rec-table">
+  <thead>
+    <tr>
+      <th class="rec-port">Port</th>
+      <th class="rec-finding">Finding</th>
+      <th class="rec-tip">Recommendation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in rec_findings %}
+    <tr>
+      <td class="mono rec-port">{{ f.port }}/{{ f.protocol }}</td>
+      <td class="rec-finding label-{{ f.label | lower }}">{{ f.label }}</td>
+      <td class="rec-tip">{{ f.recommendation }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<!-- Footer (rendered on every page via position:fixed in xhtml2pdf) -->
+<div class="pdf-footer">
+  PortWatch &middot; Confidential: for authorized IT Department use only &middot;
+  Page <pdf:pagenumber/> of <pdf:pagecount/>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,295 @@
+{#
+  admin/admin_audit_log.html
+  Audit Log page — a READ-ONLY record of all admin actions in PortWatch.
+  Extends base_layout.html, active_page="audit_log".
+
+  WHY READ-ONLY:
+    Audit entries are security evidence. Editing or deleting them would
+    allow an admin to cover their tracks. No edit/delete controls are
+    shown anywhere on this page. See admin_routes.py for the full comment.
+
+  EXPECTS from template context:
+    entries        — all audit entry dicts, newest first
+    categories     — list of category strings for the filter dropdown
+    usernames      — sorted list of unique usernames in the log
+    prefill        — dict of filter values from query params (q, category,
+                     result, user, date_from, date_to, blocked)
+    total_entries  — int (total before filtering; used by JS for pagination)
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+
+{# ================================================================== #}
+{# HEADER                                                              #}
+{# ================================================================== #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="pw-page-title">Audit Log</h1>
+    <p class="pw-page-subtitle mb-0">
+      A read-only record of scans, changes, and blocked attempts in PortWatch.
+    </p>
+  </div>
+  <a id="exportCsvBtn"
+     href="{{ url_for('admin.audit_log_export_csv') }}"
+     class="btn btn-outline-secondary"
+     data-bs-toggle="tooltip"
+     title="Exports entries matching the current filters"
+     aria-label="Export audit log to CSV">
+    <i class="bi bi-download me-1" aria-hidden="true"></i>
+    Export CSV
+  </a>
+</div>
+
+
+{# ================================================================== #}
+{# FILTER BAR                                                          #}
+{# ================================================================== #}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-end" id="filterBar">
+
+      {# Search: user, target, or details #}
+      <div class="col-12 col-md-3">
+        <label for="filterSearch" class="pw-form-label small">Search</label>
+        <div class="pw-search-wrap">
+          <i class="bi bi-search pw-search-icon" aria-hidden="true"></i>
+          <input type="text" id="filterSearch"
+                 class="form-control pw-input pw-search-input"
+                 placeholder="User, target, or details…"
+                 value="{{ prefill.q }}">
+        </div>
+      </div>
+
+      {# Category #}
+      <div class="col-6 col-md-2">
+        <label for="filterCategory" class="pw-form-label small">Category</label>
+        <select id="filterCategory" class="form-select pw-input">
+          <option value="">All categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat }}"
+              {% if prefill.category == cat %}selected{% endif %}>
+              {{ cat }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# Result #}
+      <div class="col-6 col-md-1">
+        <label for="filterResult" class="pw-form-label small">Result</label>
+        <select id="filterResult" class="form-select pw-input">
+          <option value="">All</option>
+          <option value="success" {% if prefill.result == 'success' %}selected{% endif %}>Success</option>
+          <option value="blocked" {% if prefill.result == 'blocked' %}selected{% endif %}>Blocked</option>
+          <option value="failed"  {% if prefill.result == 'failed'  %}selected{% endif %}>Failed</option>
+        </select>
+      </div>
+
+      {# User #}
+      <div class="col-6 col-md-2">
+        <label for="filterUser" class="pw-form-label small">User</label>
+        <select id="filterUser" class="form-select pw-input">
+          <option value="">All users</option>
+          {% for uname in usernames %}
+            <option value="{{ uname | lower }}"
+              {% if prefill.user == uname %}selected{% endif %}>
+              @{{ uname }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# Date From #}
+      <div class="col-6 col-md-1">
+        <label for="filterDateFrom" class="pw-form-label small">From</label>
+        <input type="date" id="filterDateFrom" class="form-control pw-input"
+               value="{{ prefill.date_from }}">
+      </div>
+
+      {# Date To #}
+      <div class="col-6 col-md-1">
+        <label for="filterDateTo" class="pw-form-label small">To</label>
+        <input type="date" id="filterDateTo" class="form-control pw-input"
+               value="{{ prefill.date_to }}">
+        <div id="dateError" class="pw-form-hint"
+             style="color:var(--pw-red); display:none; font-size:0.75rem;">
+          "To" must be on or after "From".
+        </div>
+      </div>
+
+      {# Right: quick buttons + blocked checkbox #}
+      <div class="col-12 col-md-2 d-flex flex-column gap-2">
+        <div class="d-flex gap-1 flex-wrap">
+          <button type="button" class="btn btn-sm pw-filter-tab" id="quickToday">Today</button>
+          <button type="button" class="btn btn-sm pw-filter-tab" id="quickWeek">Last 7 days</button>
+          <button type="button" class="btn btn-sm pw-filter-tab" id="quickMonth">Last 30 days</button>
+        </div>
+        <div class="form-check pw-check-gap mb-0">
+          <input class="form-check-input" type="checkbox"
+                 id="filterBlocked" value="1"
+                 {% if prefill.blocked %}checked{% endif %}>
+          <label class="form-check-label small" for="filterBlocked">
+            Blocked attempts only
+          </label>
+        </div>
+      </div>
+
+      {# Clear #}
+      <div class="col-12 mt-1">
+        <button type="button" id="clearFilters" class="pw-clear-btn">
+          Clear filters
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{# ================================================================== #}
+{# AUDIT TABLE                                                         #}
+{# ================================================================== #}
+{% if entries %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-compact mb-0" id="auditTable">
+        <thead>
+          <tr>
+            <th scope="col">Timestamp</th>
+            <th scope="col">User</th>
+            <th scope="col">Action</th>
+            <th scope="col">Target</th>
+            <th scope="col">Details</th>
+            <th scope="col">Result</th>
+          </tr>
+        </thead>
+        <tbody id="auditTableBody">
+
+          {% for e in entries %}
+          {#
+            data-* attributes drive client-side filtering.
+            Blocked rows get a subtle red left border via .pw-audit-blocked.
+          #}
+          <tr
+            class="pw-audit-row {% if e.result == 'blocked' %}pw-audit-blocked{% endif %}"
+            data-search="{{ (e.username ~ ' ' ~ e.target ~ ' ' ~ e.detail) | lower }}"
+            data-category="{{ e.category }}"
+            data-result="{{ e.result }}"
+            data-user="{{ e.username | lower }}"
+            data-date="{{ e.timestamp.strftime('%Y-%m-%d') if e.timestamp else '' }}"
+          >
+
+            {# Timestamp #}
+            <td class="small" style="white-space:nowrap;">
+              {{ e.timestamp.strftime("%d %b %Y, %H:%M:%S") if e.timestamp else '—' }}
+            </td>
+
+            {# User + IP #}
+            <td>
+              <div class="pw-mono" style="font-size:0.8rem;">{{ e.username }}</div>
+              <div class="pw-text-muted" style="font-size:0.72rem;">{{ e.ip_address }}</div>
+            </td>
+
+            {# Action label + category badge #}
+            <td style="white-space:nowrap;">
+              <div class="small fw-semibold">{{ e.label }}</div>
+              <span class="pw-audit-cat-badge pw-audit-cat-{{ e.category | lower }}">
+                {{ e.category }}
+              </span>
+            </td>
+
+            {# Target — scan IDs link to Scan Results page #}
+            <td class="small pw-mono">
+              {% if e.target and e.target.startswith('SCN-') %}
+                <a href="{{ url_for('admin.scan_results', scan_id=e.target) }}"
+                   data-bs-toggle="tooltip" title="Open scan results for {{ e.target }}">
+                  {{ e.target }}
+                </a>
+              {% else %}
+                {{ e.target or '—' }}
+              {% endif %}
+            </td>
+
+            {# Details — truncated with a tooltip for the full text #}
+            <td>
+              {% if e.detail | length > 60 %}
+                <span class="pw-notes-truncate"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="{{ e.detail }}">
+                  {{ e.detail[:57] }}…
+                </span>
+              {% else %}
+                <span class="small">{{ e.detail or '—' }}</span>
+              {% endif %}
+            </td>
+
+            {# Result badge #}
+            <td>
+              {% if e.result == 'blocked' %}
+                <span class="pw-audit-result-blocked">Blocked</span>
+              {% elif e.result == 'failed' %}
+                <span class="pw-audit-result-failed">Failed</span>
+              {% else %}
+                <span class="pw-audit-result-success">Success</span>
+              {% endif %}
+            </td>
+
+          </tr>
+          {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# No-match empty state (shown by JS when all rows are filtered out) #}
+<div id="noFilterResults" class="pw-empty-state mt-3" style="display:none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No log entries match your filters.</p>
+  <button type="button" id="clearFilters2"
+          class="btn btn-outline-secondary btn-sm">Clear filters</button>
+</div>
+
+{# Pagination mount point — 10 entries per page #}
+<div id="auditPagination" class="pw-pagination-wrap mt-3"></div>
+
+{% else %}
+
+{# No entries at all #}
+<div class="pw-empty-state">
+  <i class="bi bi-journal-text pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No audit log entries yet.</p>
+  <p class="pw-text-muted small">
+    Entries are created automatically as you use PortWatch.
+  </p>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+  window.auditLogData = {
+    totalEntries: {{ total_entries }},
+    exportUrl:    "{{ url_for('admin.audit_log_export_csv') }}",
+    prefill: {
+      q:        {{ prefill.q        | tojson }},
+      category: {{ prefill.category | tojson }},
+      result:   {{ prefill.result   | tojson }},
+      user:     {{ prefill.user     | tojson }},
+      dateFrom: {{ prefill.date_from| tojson }},
+      dateTo:   {{ prefill.date_to  | tojson }},
+      blocked:  {{ 'true' if prefill.blocked else 'false' }},
+    },
+  };
+</script>
+<script src="{{ url_for('static', filename='js/admin_audit_log.js') }}"></script>
+{% endblock %}

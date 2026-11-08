@@ -1,0 +1,324 @@
+{#
+  viewer/viewer_my_account.html
+  Viewer My Account page — read-only account details + change-password form.
+  Extends base_layout.html, active_page="account".
+
+  Two cards side by side on desktop, stacked on mobile:
+    Left:  Account Details (read-only)
+    Right: Change Password form
+
+  EXPECTS from template context:
+    form_errors — dict field→error message (empty on fresh GET)
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}My Account{% endblock %}
+
+{% block content %}
+
+{# ================================================================== #}
+{# HEADER                                                              #}
+{# ================================================================== #}
+<div class="mb-3">
+  <h1 class="pw-page-title">My Account</h1>
+  <p class="pw-page-subtitle mb-0">
+    View your account details and update your password.
+  </p>
+</div>
+
+
+{# ================================================================== #}
+{# TWO-COLUMN LAYOUT                                                   #}
+{# ================================================================== #}
+<div class="row g-3">
+
+  {# ============================================================ #}
+  {# LEFT: Account Details (read-only)                            #}
+  {# ============================================================ #}
+  <div class="col-12 col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Account Details</div>
+      <div class="card-body">
+
+        {# Full name #}
+        <div class="mb-3">
+          <div class="pw-text-muted small mb-1">Full Name</div>
+          <div class="fw-semibold">{{ current_user.full_name }}</div>
+        </div>
+
+        {# Username #}
+        <div class="mb-3">
+          <div class="pw-text-muted small mb-1">Username</div>
+          <div class="pw-mono">@{{ current_user.username }}</div>
+        </div>
+
+        {# Role badge #}
+        <div class="mb-3">
+          <div class="pw-text-muted small mb-1">Role</div>
+          <span class="pw-badge-role-viewer">Viewer</span>
+        </div>
+
+        {# Last login #}
+        <div class="mb-3">
+          <div class="pw-text-muted small mb-1">Last Login</div>
+          <div>
+            {% if current_user.last_login %}
+              {{ current_user.last_login.strftime("%d %b %Y, %H:%M") }}
+            {% else %}
+              <span class="pw-text-muted">Never</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {# Member since #}
+        <div class="mb-3">
+          <div class="pw-text-muted small mb-1">Member Since</div>
+          <div>
+            {% if current_user.created_at %}
+              {{ current_user.created_at.strftime("%d %b %Y") }}
+            {% else %}
+              <span class="pw-text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {# Read-only note #}
+        <div class="pw-form-hint mt-4">
+          <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+          To change your name or role, contact an administrator.
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  {# ============================================================ #}
+  {# RIGHT: Change Password form                                  #}
+  {# ============================================================ #}
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Change Password</div>
+      <div class="card-body">
+
+        <form method="POST"
+              action="{{ url_for('viewer.account_change_password') }}"
+              novalidate
+              id="changePasswordForm">
+
+          {# Current Password #}
+          <div class="mb-3">
+            <label for="currentPassword" class="pw-form-label">
+              Current Password <span class="pw-required">*</span>
+            </label>
+            <div class="input-group">
+              <input type="password"
+                     id="currentPassword"
+                     name="current_password"
+                     class="form-control pw-input {% if form_errors.current_password %}is-invalid{% endif %}"
+                     maxlength="64"
+                     placeholder="Your current password"
+                     required
+                     autocomplete="current-password"/>
+              <button type="button"
+                      class="btn-icon border pw-show-hide-btn"
+                      data-target="currentPassword"
+                      aria-label="Show/hide current password">
+                <i class="bi bi-eye" aria-hidden="true"></i>
+              </button>
+              {% if form_errors.current_password %}
+                <div class="invalid-feedback d-block w-100">
+                  {{ form_errors.current_password }}
+                </div>
+              {% else %}
+                <div class="invalid-feedback">Current password is required.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          {# New Password #}
+          <div class="mb-2">
+            <label for="newPassword" class="pw-form-label">
+              New Password <span class="pw-required">*</span>
+            </label>
+            <div class="input-group">
+              <input type="password"
+                     id="newPassword"
+                     name="new_password"
+                     class="form-control pw-input {% if form_errors.new_password %}is-invalid{% endif %}"
+                     maxlength="64"
+                     placeholder="Min 8 characters"
+                     required
+                     autocomplete="new-password"/>
+              <button type="button"
+                      class="btn-icon border pw-show-hide-btn"
+                      data-target="newPassword"
+                      aria-label="Show/hide new password">
+                <i class="bi bi-eye" aria-hidden="true"></i>
+              </button>
+              {% if form_errors.new_password %}
+                <div class="invalid-feedback d-block w-100">
+                  {{ form_errors.new_password }}
+                </div>
+              {% else %}
+                <div class="invalid-feedback">New password is required.</div>
+              {% endif %}
+            </div>
+
+            {# Live password strength checklist — 3 items on one horizontal line #}
+            <div class="d-flex gap-3 flex-wrap mt-1" id="acctPwChecklist"
+                 style="font-size:0.78rem;">
+              <span id="acctPwLen" class="pw-text-muted">
+                <i class="bi bi-circle me-1" aria-hidden="true"></i>At least 8 characters
+              </span>
+              <span id="acctPwLet" class="pw-text-muted">
+                <i class="bi bi-circle me-1" aria-hidden="true"></i>Contains a letter
+              </span>
+              <span id="acctPwNum" class="pw-text-muted">
+                <i class="bi bi-circle me-1" aria-hidden="true"></i>Contains a number
+              </span>
+            </div>
+          </div>
+
+          {# Confirm New Password #}
+          <div class="mb-4">
+            <label for="confirmNewPassword" class="pw-form-label">
+              Confirm New Password <span class="pw-required">*</span>
+            </label>
+            <div class="input-group">
+              <input type="password"
+                     id="confirmNewPassword"
+                     name="confirm_new_password"
+                     class="form-control pw-input {% if form_errors.confirm_new_password %}is-invalid{% endif %}"
+                     maxlength="64"
+                     placeholder="Repeat new password"
+                     required
+                     autocomplete="new-password"/>
+              <button type="button"
+                      class="btn-icon border pw-show-hide-btn"
+                      data-target="confirmNewPassword"
+                      aria-label="Show/hide confirm password">
+                <i class="bi bi-eye" aria-hidden="true"></i>
+              </button>
+              {% if form_errors.confirm_new_password %}
+                <div class="invalid-feedback d-block w-100">
+                  {{ form_errors.confirm_new_password }}
+                </div>
+              {% else %}
+                <div class="invalid-feedback">Please confirm your new password.</div>
+              {% endif %}
+            </div>
+            {# Inline match hint updated by JS #}
+            <div id="acctConfirmMsg" class="form-text pw-form-hint mt-1"
+                 style="display:none;"></div>
+          </div>
+
+          {# Submit #}
+          <button type="submit" class="btn btn-primary" id="changePwSubmitBtn">
+            <span id="changePwBtnText">
+              <i class="bi bi-lock me-1" aria-hidden="true"></i>
+              Update Password
+            </span>
+            <span id="changePwBtnSpinner" class="d-none">
+              <span class="spinner-border spinner-border-sm me-1"
+                    role="status" aria-hidden="true"></span>
+              Saving…
+            </span>
+          </button>
+
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+</div>{# end row #}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+/*
+ * My Account page JS — show/hide toggles, live checklist, confirm match hint,
+ * submit spinner. Inline to keep the page self-contained (no separate file needed
+ * for this small amount of logic).
+ */
+document.addEventListener("DOMContentLoaded", function () {
+
+    // ---- Show / Hide password toggles ----
+    document.querySelectorAll(".pw-show-hide-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            const input = document.getElementById(btn.dataset.target);
+            if (!input) return;
+            const hide = input.type === "password";
+            input.type = hide ? "text" : "password";
+            const icon = btn.querySelector("i");
+            if (icon) {
+                icon.classList.toggle("bi-eye",       !hide);
+                icon.classList.toggle("bi-eye-slash",  hide);
+            }
+        });
+    });
+
+    // ---- Live password strength checklist ----
+    const newPwInput = document.getElementById("newPassword");
+
+    function updateChecklist(value) {
+        function tick(id, ok) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const icon = el.querySelector("i");
+            el.classList.toggle("pw-text-muted", !ok);
+            el.style.color = ok ? "#4CAF50" : "";
+            if (icon) icon.className = ok ? "bi bi-check-circle me-1" : "bi bi-circle me-1";
+        }
+        tick("acctPwLen", value.length >= 8);
+        tick("acctPwLet", /[a-zA-Z]/.test(value));
+        tick("acctPwNum", /[0-9]/.test(value));
+    }
+
+    if (newPwInput) {
+        newPwInput.addEventListener("input", function () {
+            updateChecklist(newPwInput.value);
+            checkMatch();
+        });
+    }
+
+    // ---- Confirm password match hint ----
+    const confirmInput = document.getElementById("confirmNewPassword");
+    const confirmMsg   = document.getElementById("acctConfirmMsg");
+
+    function checkMatch() {
+        if (!confirmInput || !newPwInput || !confirmMsg) return;
+        if (!confirmInput.value) { confirmMsg.style.display = "none"; return; }
+        confirmMsg.style.display = "";
+        const match = confirmInput.value === newPwInput.value;
+        confirmMsg.textContent = match ? "✓ Passwords match" : "✗ Passwords do not match";
+        confirmMsg.style.color = match ? "#4CAF50" : "var(--pw-red)";
+    }
+
+    if (confirmInput) confirmInput.addEventListener("input", checkMatch);
+
+    // ---- Submit spinner ----
+    const form      = document.getElementById("changePasswordForm");
+    const submitBtn = document.getElementById("changePwSubmitBtn");
+    const btnText   = document.getElementById("changePwBtnText");
+    const spinner   = document.getElementById("changePwBtnSpinner");
+
+    if (form) {
+        form.addEventListener("submit", function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+                form.classList.add("was-validated");
+                return;
+            }
+            form.classList.add("was-validated");
+            if (submitBtn) submitBtn.disabled = true;
+            if (btnText)   btnText.classList.add("d-none");
+            if (spinner)   spinner.classList.remove("d-none");
+        });
+    }
+});
+</script>
+{% endblock %}

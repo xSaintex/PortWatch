@@ -1,0 +1,448 @@
+{#
+  admin/admin_scan_results.html
+  Scan Results page for a single scan record.
+  Extends base_layout.html, active_page="history" (Scan History side icon lit).
+
+  EXPECTS from template context:
+    scan          — full scan record dict
+    findings      — findings list enriched with 'recommendation' key
+    changes       — result of compare_scans(current, previous)
+    prev_scan     — previous scan dict for the same device, or None
+    next_scan     — next scan dict for the same device, or None
+    device        — device dict (or None if device was deleted)
+    unack_high    — int: count of unacknowledged High findings in this scan
+    pdf_url       — url_for('admin.scan_report_pdf', scan_id=scan.id)
+#}
+{% extends "base/base_layout.html" %}
+{% block title %}{{ scan.id }} Results{% endblock %}
+
+{% block content %}
+
+{# ================================================================== #}
+{# 1. TOP ROW: back link, title, action buttons                       #}
+{# ================================================================== #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    {# Back link — goes to Scan History, preserving any filters via referrer #}
+    <a href="{{ request.referrer if request.referrer and '/admin/history' in request.referrer else url_for('admin.history') }}"
+       class="pw-text-muted small d-inline-flex align-items-center gap-1 mb-2">
+      <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Scan History
+    </a>
+    <h1 class="pw-page-title mb-1">Scan Results — {{ scan.id }}</h1>
+    <p class="pw-page-subtitle mb-0">
+      {{ scan.device_name }}
+      &nbsp;&middot;&nbsp;
+      <span class="pw-mono">{{ scan.ip_address }}</span>
+      &nbsp;&middot;&nbsp;
+      {{ scan.started_at.strftime("%d %b %Y, %H:%M") if scan.started_at else '—' }}
+    </p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {# Print PDF button — downloads the report #}
+    <a href="{{ pdf_url }}"
+       class="btn btn-primary">
+      <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>
+      Print PDF
+    </a>
+    {# Scan Again — disabled if the device is gone or inactive #}
+    {% if device and device.status == 'active' %}
+      <a href="{{ url_for('admin.scan') }}?device_id={{ device.id }}"
+         class="btn btn-outline-secondary">
+        <i class="bi bi-radar me-1" aria-hidden="true"></i>
+        Scan Again
+      </a>
+    {% else %}
+      <button class="btn btn-outline-secondary" disabled
+              data-bs-toggle="tooltip"
+              title="Device is inactive or no longer registered">
+        <i class="bi bi-radar me-1" aria-hidden="true"></i>
+        Scan Again
+      </button>
+    {% endif %}
+  </div>
+</div>
+
+
+{# ================================================================== #}
+{# 2. UNACKNOWLEDGED HIGH-RISK ALERT                                  #}
+{# ================================================================== #}
+{% if unack_high > 0 %}
+<div class="pw-alert-banner mb-3" role="alert" id="scanResultsHighAlert">
+  <i class="bi bi-exclamation-triangle-fill pw-alert-icon" aria-hidden="true"></i>
+  <span class="pw-alert-text">
+    <strong>{{ unack_high }} high-risk
+    {{ "finding" if unack_high == 1 else "findings" }}</strong> need review.
+  </span>
+  <button type="button"
+          class="btn btn-sm btn-outline-secondary ms-2"
+          data-bs-toggle="modal"
+          data-bs-target="#ackAllModal"
+          aria-label="Acknowledge all findings">
+    Acknowledge all
+  </button>
+  <button class="pw-alert-close ms-auto"
+          aria-label="Dismiss"
+          onclick="document.getElementById('scanResultsHighAlert').style.display='none';">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endif %}
+
+
+{# ================================================================== #}
+{# 3. SCAN DETAILS CARD                                               #}
+{# ================================================================== #}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="row g-3">
+      <div class="col-12 col-md-4">
+        <div class="pw-text-muted small">Device</div>
+        {% if device %}
+          <a href="{{ url_for('admin.allowlist') }}?device_id={{ device.id }}"
+             class="fw-semibold">{{ scan.device_name }}</a>
+        {% else %}
+          <span class="fw-semibold">{{ scan.device_name }}</span>
+          <span class="pw-text-muted small ms-1">(removed)</span>
+        {% endif %}
+        <div class="pw-mono small">{{ scan.ip_address }}</div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="pw-text-muted small">Lab / Type</div>
+        <div>{{ scan.lab_location or '—' }}
+          {% if device %}&nbsp;&middot;&nbsp;{{ device.device_type }}{% endif %}
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="pw-text-muted small">Scanned</div>
+        <div>{{ scan.started_at.strftime("%d %b %Y, %H:%M") if scan.started_at else '—' }}</div>
+        <div class="pw-text-muted small">
+          {% if scan.duration_seconds %}
+            {% set dur = scan.duration_seconds %}
+            Duration:
+            {% if dur >= 60 %}{{ dur // 60 }}m {{ dur % 60 }}s{% else %}{{ dur }}s{% endif %}
+          {% endif %}
+          &nbsp;&middot;&nbsp;
+          Port range:
+          {% if (scan.port_spec or 'top1000') == 'top1000' %}Top 1,000 TCP
+          {% else %}{{ scan.port_spec }}{% endif %}
+          &nbsp;&middot;&nbsp; Host: {{ scan.host_status or 'up' }}
+        </div>
+      </div>
+    </div>
+
+    {# Nmap command #}
+    <div class="mt-2">
+      <div class="pw-text-muted small mb-1">Nmap command</div>
+      <div class="pw-scan-cmd-block">
+        <code id="nmapCmdText" class="pw-mono">nmap -sV
+          {% if (scan.port_spec or 'top1000') == 'top1000' %}--top-ports 1000
+          {% else %}-p {{ scan.port_spec }}{% endif %}
+          {{ scan.ip_address }}</code>
+        <button type="button" class="btn-icon ms-2"
+                id="copyNmapBtn"
+                data-bs-toggle="tooltip" title="Copy command"
+                aria-label="Copy Nmap command">
+          <i class="bi bi-clipboard" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    {# Previous / Next scan navigation #}
+    <div class="d-flex gap-3 mt-2 small">
+      {% if prev_scan %}
+        <a href="{{ url_for('admin.scan_results', scan_id=prev_scan.id) }}"
+           class="pw-text-muted">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+          Previous scan ({{ prev_scan.id }})
+        </a>
+      {% endif %}
+      {% if next_scan %}
+        <a href="{{ url_for('admin.scan_results', scan_id=next_scan.id) }}"
+           class="pw-text-muted ms-auto">
+          Next scan ({{ next_scan.id }})
+          <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+{# ================================================================== #}
+{# 4. LABEL FILTER TABS + RISK BADGES                                 #}
+{# ================================================================== #}
+{% set lc = scan.summary.label_counts if scan.summary else {} %}
+{% set rc = scan.summary.risk_counts   if scan.summary else {} %}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  {# Label filter tabs #}
+  <div class="d-flex gap-1 flex-wrap" id="labelFilterBtns">
+    <button class="btn btn-sm pw-filter-tab active" data-label="all">
+      All ({{ findings | length }})
+    </button>
+    {% for lbl, css in [("Approved","approved"),("Unexpected","unexpected"),("Risky","risky"),("Missing","missing")] %}
+      {% if lc.get(lbl, 0) > 0 %}
+        <button class="btn btn-sm pw-filter-tab" data-label="{{ lbl }}">
+          {{ lbl }} ({{ lc.get(lbl, 0) }})
+        </button>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {# Risk count badges #}
+  <div class="d-flex gap-2 ms-auto">
+    {% if rc.get('High', 0)   > 0 %}<span class="badge-risk-high">{{ rc.High }} High</span>{% endif %}
+    {% if rc.get('Medium', 0) > 0 %}<span class="badge-risk-medium">{{ rc.Medium }} Medium</span>{% endif %}
+    {% if rc.get('Low', 0)    > 0 %}<span class="badge-risk-low">{{ rc.Low }} Low</span>{% endif %}
+  </div>
+</div>
+
+
+{# ================================================================== #}
+{# 5. FINDINGS TABLE                                                   #}
+{# ================================================================== #}
+{% if findings %}
+<div class="card mb-3">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-compact mb-0" id="findingsTable">
+        <thead>
+          <tr>
+            <th scope="col" style="width:32px;"></th>{# expand chevron #}
+            <th scope="col">Port</th>
+            <th scope="col">Proto</th>
+            <th scope="col">Service</th>
+            <th scope="col">Label</th>
+            <th scope="col">Risk</th>
+            <th scope="col">Status</th>
+            <th scope="col">Action</th>
+          </tr>
+        </thead>
+        <tbody id="findingsTableBody">
+          {% for f in findings %}
+          <tr class="pw-finding-row"
+              data-label="{{ f.label }}"
+              data-finding-id="{{ f.id }}">
+            {# Expand chevron #}
+            <td>
+              <button class="btn-icon pw-expand-btn"
+                      aria-label="Expand finding details"
+                      aria-expanded="false">
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+              </button>
+            </td>
+            <td class="pw-mono fw-bold">{{ f.port }}</td>
+            <td>
+              <span class="pw-proto-badge pw-proto-{{ f.protocol }}">
+                {{ f.protocol | upper }}
+              </span>
+            </td>
+            <td>
+              <div class="pw-mono">{{ f.service }}</div>
+              {% if f.version %}
+                <div class="pw-text-muted" style="font-size:0.75rem;">{{ f.version }}</div>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.label == 'Risky' %}
+                <span class="badge-label-risky">Risky</span>
+              {% elif f.label == 'Unexpected' %}
+                <span class="badge-label-unexpected">Unexpected</span>
+              {% elif f.label == 'Missing' %}
+                <span class="badge-label-missing">Missing</span>
+              {% else %}
+                <span class="badge-label-approved">Approved</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.risk_level == 'High' %}
+                <span class="badge-risk-high">High</span>
+              {% elif f.risk_level == 'Medium' %}
+                <span class="badge-risk-medium">Medium</span>
+              {% elif f.risk_level == 'Low' %}
+                <span class="badge-risk-low">Low</span>
+              {% else %}
+                <span class="pw-text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.label == 'Approved' %}
+                <span class="pw-text-muted">—</span>
+              {% elif f.acknowledged %}
+                <span class="pw-text-muted small">
+                  <i class="bi bi-check-circle me-1" aria-hidden="true"></i>Acknowledged
+                </span>
+              {% else %}
+                <span class="pw-text-muted small">Open</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.label in ('Risky','Unexpected','Missing') and not f.acknowledged %}
+                <form method="POST"
+                      action="{{ url_for('admin.scan_finding_acknowledge', scan_id=scan.id, finding_id=f.id) }}"
+                      class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary"
+                          style="font-size:0.75rem; padding:2px 8px;">
+                    Acknowledge
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {# Detail row — hidden by default, toggled by the expand button #}
+          <tr class="pw-finding-detail pw-finding-row" data-label="{{ f.label }}"
+              style="display:none;">
+            <td></td>
+            <td colspan="7" class="pw-text-muted small pb-2">
+              <strong>Reason:</strong> {{ f.reason or '—' }}
+              {% if f.recommendation %}
+                <br><strong>Recommendation:</strong> {{ f.recommendation }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# No findings match filter — shown by JS #}
+<div id="noFindingResults" class="pw-empty-state mt-2" style="display:none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No findings match this filter.</p>
+</div>
+
+{# Pagination mount point — 8 findings per page #}
+<div id="findingsPagination" class="pw-pagination-wrap mt-2 mb-3"></div>
+
+{% else %}
+{# Empty state — no open ports found #}
+<div class="pw-empty-state">
+  <i class="bi bi-shield-check pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No open ports were found on this device during this scan.</p>
+</div>
+{% endif %}
+
+
+{# ================================================================== #}
+{# 6. CHANGES SINCE PREVIOUS SCAN                                     #}
+{# ================================================================== #}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Changes Since Previous Scan</span>
+    {% if prev_scan %}
+      <span class="pw-text-muted small">
+        Compared with
+        <a href="{{ url_for('admin.scan_results', scan_id=prev_scan.id) }}">{{ prev_scan.id }}</a>
+        ({{ prev_scan.started_at.strftime("%d %b %Y") if prev_scan.started_at else '?' }})
+      </span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if changes.is_first_scan %}
+      <p class="pw-text-muted mb-0">This is the first scan of this device.</p>
+    {% elif not changes.has_changes %}
+      <p class="pw-text-muted mb-0">No changes since the previous scan.</p>
+    {% else %}
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <div class="fw-semibold mb-1" style="color:var(--pw-red);">
+            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>
+            Newly Opened ({{ changes.newly_opened | length }})
+          </div>
+          {% for p in changes.newly_opened %}
+            <div class="small pw-mono">{{ p.port }}/{{ p.protocol }}
+              <span class="pw-text-muted">{{ p.service }}</span>
+            </div>
+          {% else %}
+            <div class="pw-text-muted small">None</div>
+          {% endfor %}
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="fw-semibold mb-1 pw-text-muted">
+            <i class="bi bi-dash-circle me-1" aria-hidden="true"></i>
+            Closed ({{ changes.closed | length }})
+          </div>
+          {% for p in changes.closed %}
+            <div class="small pw-mono pw-text-muted">{{ p.port }}/{{ p.protocol }}
+              <span>{{ p.service }}</span>
+            </div>
+          {% else %}
+            <div class="pw-text-muted small">None</div>
+          {% endfor %}
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="fw-semibold mb-1" style="color:var(--pw-yellow);">
+            <i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>
+            Service Changed ({{ changes.service_changed | length }})
+          </div>
+          {% for c in changes.service_changed %}
+            <div class="small pw-mono" style="color:var(--pw-yellow);">
+              {{ c.port }}/{{ c.protocol }}:
+              <span class="pw-text-muted">
+                {% if c.old_version and c.new_version %}
+                  {{ c.old_version }} → {{ c.new_version }}
+                {% else %}
+                  {{ c.old_service }} → {{ c.new_service }}
+                {% endif %}
+              </span>
+            </div>
+          {% else %}
+            <div class="pw-text-muted small">None</div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+
+{# ================================================================== #}
+{# ACKNOWLEDGE ALL MODAL                                              #}
+{# ================================================================== #}
+{% if unack_high > 0 %}
+<div class="modal fade" id="ackAllModal" tabindex="-1"
+     aria-labelledby="ackAllModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content pw-modal-content">
+      <div class="modal-header pw-modal-header">
+        <h5 class="modal-title" id="ackAllModalLabel">Acknowledge All Findings</h5>
+        <button type="button" class="pw-modal-close" data-bs-dismiss="modal"
+                aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-body pw-modal-body">
+        <p class="small">
+          Mark all <strong>{{ unack_high }} Risky / Unexpected / Missing</strong>
+          findings on this scan as acknowledged? This updates the Dashboard
+          alert banner and the unacknowledged-findings count.
+        </p>
+      </div>
+      <div class="modal-footer pw-modal-footer">
+        <button type="button" class="btn btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+        <form method="POST"
+              action="{{ url_for('admin.scan_acknowledge_all', scan_id=scan.id) }}">
+          <button type="submit" class="btn btn-primary">
+            Acknowledge All
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/admin_scan_results.js') }}"></script>
+<script>
+  window.scanResultsData = {
+    findingsCount: {{ findings | length }},
+  };
+</script>
+{% endblock %}

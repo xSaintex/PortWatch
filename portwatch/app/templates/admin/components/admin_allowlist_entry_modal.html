@@ -1,0 +1,203 @@
+{#
+  admin/components/admin_allowlist_entry_modal.html
+  Shared Add / Edit allowlist entry modal.
+  Reused for both modes; JS swaps title, form action, and prefills fields.
+
+  EXPECTS from template context:
+    device      — the selected device dict (for subtitle)
+    form_errors — dict field→message (empty on fresh open)
+    form_data   — dict of typed values (empty on fresh open)
+    open_entry_modal — True when server re-renders after a validation error
+#}
+
+<div class="modal fade" id="entryFormModal" tabindex="-1"
+     aria-labelledby="entryFormModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content pw-modal-content">
+
+      {# HEADER #}
+      <div class="modal-header pw-modal-header pw-modal-header-compact">
+        <div class="d-flex align-items-center gap-2 flex-grow-1">
+          <i class="bi bi-shield-plus pw-modal-title-icon" aria-hidden="true"></i>
+          <div>
+            <h5 class="modal-title mb-0" id="entryFormModalLabel">Add Approved Port</h5>
+            <p class="pw-modal-subtitle mb-0" id="entryFormSubtitle">
+              for {{ device.name }} ({{ device.ip_address }})
+            </p>
+          </div>
+        </div>
+        <button type="button" class="pw-modal-close ms-2"
+                data-bs-dismiss="modal" aria-label="Close">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <form id="entryForm" method="POST"
+            action="{{ url_for('admin.allowlist_entry_add', device_id=device.id) }}"
+            novalidate>
+
+        <div class="modal-body pw-modal-body pw-modal-body-compact">
+
+          {# -------------------------------------------------------- #}
+          {# ROW 1: Port Number | Protocol                            #}
+          {# -------------------------------------------------------- #}
+          <div class="row g-3 mb-0">
+
+            <div class="col-12 col-md-6">
+              <label for="entryPort" class="pw-form-label">
+                Port Number <span class="pw-required">*</span>
+              </label>
+              <input
+                type="number"
+                class="form-control pw-input pw-mono {% if form_errors.port %}is-invalid{% endif %}"
+                id="entryPort"
+                name="port"
+                min="1" max="65535"
+                placeholder="e.g. 22"
+                value="{{ form_data.port or '' }}"
+                required
+                autocomplete="off"
+              />
+              {# Auto-fill hint — filled by JS when port matches port_reference #}
+              <div id="portHint" class="form-text pw-form-hint pw-port-hint" style="display:none;"></div>
+              {% if form_errors.port %}
+                <div class="invalid-feedback d-block">{{ form_errors.port }}</div>
+              {% else %}
+                <div class="invalid-feedback">Enter a port number between 1 and 65535.</div>
+              {% endif %}
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label for="entryProtocol" class="pw-form-label">
+                Protocol <span class="pw-required">*</span>
+              </label>
+              <select
+                class="form-select pw-input {% if form_errors.protocol %}is-invalid{% endif %}"
+                id="entryProtocol"
+                name="protocol"
+                required
+              >
+                <option value="tcp" {% if (form_data.protocol or 'tcp') == 'tcp' %}selected{% endif %}>TCP</option>
+                <option value="udp" {% if form_data.protocol == 'udp' %}selected{% endif %}>UDP</option>
+              </select>
+              {% if form_errors.protocol %}
+                <div class="invalid-feedback d-block">{{ form_errors.protocol }}</div>
+              {% endif %}
+            </div>
+
+          </div>{# /row 1 #}
+
+          {# -------------------------------------------------------- #}
+          {# ROW 2: Service Name | Expected to be open                #}
+          {# -------------------------------------------------------- #}
+          <div class="row g-3 mb-0 mt-1">
+
+            <div class="col-12 col-md-6">
+              <label for="entryService" class="pw-form-label">
+                Service Name <span class="pw-required">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control pw-input pw-mono {% if form_errors.service %}is-invalid{% endif %}"
+                id="entryService"
+                name="service"
+                maxlength="30"
+                placeholder="e.g. ssh"
+                value="{{ form_data.service or '' }}"
+                required
+                autocomplete="off"
+              />
+              <div class="form-text pw-form-hint">
+                Use the Nmap service name (lowercase, hyphens allowed)
+              </div>
+              {% if form_errors.service %}
+                <div class="invalid-feedback d-block">{{ form_errors.service }}</div>
+              {% else %}
+                <div class="invalid-feedback">
+                  Required. Lowercase letters, numbers, and hyphens only
+                  (e.g. ssh, http, ms-wbt-server).
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="col-12 col-md-6 d-flex flex-column justify-content-start">
+              <label class="pw-form-label">Expected to be Open</label>
+              <div class="form-check form-switch mb-1 mt-1">
+                <input
+                  class="form-check-input pw-toggle"
+                  type="checkbox"
+                  role="switch"
+                  id="entryExpected"
+                  name="expected_open"
+                  value="on"
+                  {% if form_data.get("expected_open") %}checked{% endif %}
+                />
+                <label class="form-check-label pw-toggle-label" for="entryExpected">
+                  Required
+                </label>
+              </div>
+              <div class="form-text pw-form-hint">
+                If ON, PortWatch flags this as
+                <strong>Missing</strong> when the port is closed.
+              </div>
+            </div>
+
+          </div>{# /row 2 #}
+
+          {# Risky port warning box — shown by JS when port is risky #}
+          <div id="riskyWarning" class="pw-allowlist-risky-box mt-2" style="display:none;">
+            <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+            <span id="riskyWarningText"></span>
+            It will still be flagged as <strong>Risky</strong> in scan results even
+            if approved.
+          </div>
+
+          {# -------------------------------------------------------- #}
+          {# ROW 3: Notes — full width                                #}
+          {# -------------------------------------------------------- #}
+          <div class="row g-3 mt-1">
+            <div class="col-12">
+              <label for="entryNotes" class="pw-form-label">
+                Reason / Notes
+                <span class="pw-text-muted">(optional)</span>
+              </label>
+              <textarea
+                class="form-control pw-input {% if form_errors.notes %}is-invalid{% endif %}"
+                id="entryNotes"
+                name="notes"
+                rows="3"
+                maxlength="200"
+                placeholder="e.g. Needed for remote administration by IT staff"
+              >{{ form_data.notes or '' }}</textarea>
+              {% if form_errors.notes %}
+                <div class="invalid-feedback d-block">{{ form_errors.notes }}</div>
+              {% endif %}
+              <div class="form-text pw-form-hint text-end">
+                <span id="entryNotesCounter">{{ (form_data.notes or '') | length }}</span> / 200
+              </div>
+            </div>
+          </div>
+
+        </div>{# END modal-body #}
+
+        {# FOOTER #}
+        <div class="modal-footer pw-modal-footer">
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="entryFormSubmitBtn">
+            <span id="entryFormBtnText">
+              <i class="bi bi-check-lg me-1" aria-hidden="true"></i>
+              Save Port
+            </span>
+            <span id="entryFormBtnSpinner" class="d-none">
+              <span class="spinner-border spinner-border-sm me-1"
+                    role="status" aria-hidden="true"></span>
+              Saving…
+            </span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>

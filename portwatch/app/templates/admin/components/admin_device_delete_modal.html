@@ -1,0 +1,78 @@
+{#
+  admin/components/admin_device_delete_modal.html
+  Confirmation modal for deleting a device.
+  JavaScript fills in the device name, IP, and form action URL when the
+  Delete button in the table is clicked.
+
+  Included in admin_device_registry.html via:
+    {% include "admin/components/admin_device_delete_modal.html" %}
+#}
+
+<div
+  class="modal fade"
+  id="deleteDeviceModal"
+  tabindex="-1"
+  aria-labelledby="deleteDeviceModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content pw-modal-content">
+
+      {# ---- MODAL HEADER ---- #}
+      <div class="modal-header pw-modal-header">
+        <h5 class="modal-title" id="deleteDeviceModalLabel">
+          <i class="bi bi-exclamation-triangle-fill pw-modal-warn-icon me-2" aria-hidden="true"></i>
+          Delete Device
+        </h5>
+        <button
+          type="button"
+          class="pw-modal-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      {# ---- MODAL BODY ---- #}
+      <div class="modal-body pw-modal-body">
+
+        {# Main warning text — device name and IP filled in by JS #}
+        <p class="pw-modal-delete-text">
+          Delete <strong id="deleteDeviceName">this device</strong>
+          (<span class="pw-mono" id="deleteDeviceIp"></span>)?
+        </p>
+        <p class="pw-text-muted small">
+          Its allowlist and scan history will also be removed.
+          <strong class="pw-text-muted">This cannot be undone.</strong>
+        </p>
+
+        {# Helpful tip to use deactivate instead if history should be kept #}
+        <div class="pw-modal-tip">
+          <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>
+          To stop scanning a device but keep its history, deactivate it instead.
+        </div>
+
+      </div>
+      {# ---- END MODAL BODY ---- #}
+
+      {# ---- MODAL FOOTER ---- #}
+      {#
+        The form action (delete URL with device_id) is set dynamically by JS.
+        We use a POST form because deleting data should never be a GET request.
+      #}
+      <div class="modal-footer pw-modal-footer">
+        <form id="deleteDeviceForm" method="POST" action="#">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-danger ms-2">
+            <i class="bi bi-trash me-1" aria-hidden="true"></i>
+            Delete Device
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
