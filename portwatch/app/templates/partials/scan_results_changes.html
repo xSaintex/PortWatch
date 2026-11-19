@@ -1,0 +1,84 @@
+{#
+  partials/scan_results_changes.html
+  "Changes Since Previous Scan" card.
+  Included by both admin_scan_results.html and viewer_scan_results.html.
+
+  EXPECTS:
+    changes         — result of compare_scans()
+    prev_scan       — previous scan dict or None
+    prev_endpoint   — endpoint name for the "Compared with" link
+#}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Changes Since Previous Scan</span>
+    {% if prev_scan %}
+      <span class="pw-text-muted small">
+        Compared with
+        <a href="{{ url_for(prev_endpoint, scan_id=prev_scan.id) }}">
+          {{ prev_scan.id }}
+        </a>
+        ({{ prev_scan.started_at.strftime("%d %b %Y") if prev_scan.started_at else '?' }})
+      </span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if changes.is_first_scan %}
+      <p class="pw-text-muted mb-0">This is the first scan of this device.</p>
+    {% elif not changes.has_changes %}
+      <p class="pw-text-muted mb-0">No changes since the previous scan.</p>
+    {% else %}
+      <div class="row g-3">
+
+        <div class="col-12 col-md-4">
+          <div class="fw-semibold mb-1" style="color:var(--pw-red);">
+            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>
+            Newly Opened ({{ changes.newly_opened | length }})
+          </div>
+          {% for p in changes.newly_opened %}
+            <div class="small pw-mono">{{ p.port }}/{{ p.protocol }}
+              <span class="pw-text-muted">{{ p.service }}</span>
+            </div>
+          {% else %}
+            <div class="pw-text-muted small">None</div>
+          {% endfor %}
+        </div>
+
+        <div class="col-12 col-md-4">
+          <div class="fw-semibold mb-1 pw-text-muted">
+            <i class="bi bi-dash-circle me-1" aria-hidden="true"></i>
+            Closed ({{ changes.closed | length }})
+          </div>
+          {% for p in changes.closed %}
+            <div class="small pw-mono pw-text-muted">{{ p.port }}/{{ p.protocol }}
+              <span>{{ p.service }}</span>
+            </div>
+          {% else %}
+            <div class="pw-text-muted small">None</div>
+          {% endfor %}
+        </div>
+
+        <div class="col-12 col-md-4">
+          <div class="fw-semibold mb-1" style="color:var(--pw-yellow);">
+            <i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>
+            Service Changed ({{ changes.service_changed | length }})
+          </div>
+          {% for c in changes.service_changed %}
+            <div class="small pw-mono" style="color:var(--pw-yellow);">
+              {{ c.port }}/{{ c.protocol }}:
+              <span class="pw-text-muted">
+                {% if c.old_version and c.new_version %}
+                  {{ c.old_version }} → {{ c.new_version }}
+                {% else %}
+                  {{ c.old_service }} → {{ c.new_service }}
+                {% endif %}
+              </span>
+            </div>
+          {% else %}
+            <div class="pw-text-muted small">None</div>
+          {% endfor %}
+        </div>
+
+      </div>
+    {% endif %}
+  </div>
+</div>

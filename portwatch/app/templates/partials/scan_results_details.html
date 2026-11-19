@@ -1,0 +1,100 @@
+{#
+  partials/scan_results_details.html
+  Scan details card: device info, duration, Nmap command, prev/next links.
+  Included by both admin_scan_results.html and viewer_scan_results.html.
+
+  EXPECTS:
+    scan          — scan record dict
+    device        — device dict or None
+    prev_scan     — previous scan dict or None
+    next_scan     — next scan dict or None
+    can_manage    — bool: True for admin (device links to Allowlist Mgmt),
+                          False for viewer (device is plain text)
+    prev_endpoint — string endpoint name for the previous scan link,
+                    e.g. "admin.scan_results" or "viewer.scan_results"
+    next_endpoint — string endpoint name for the next scan link
+#}
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="row g-3">
+
+      {# Device + IP #}
+      <div class="col-12 col-md-4">
+        <div class="pw-text-muted small">Device</div>
+        {% if can_manage and device %}
+          <a href="{{ url_for('admin.allowlist') }}?device_id={{ device.id }}"
+             class="fw-semibold">{{ scan.device_name }}</a>
+        {% else %}
+          <span class="fw-semibold">{{ scan.device_name }}</span>
+          {% if not device %}
+            <span class="pw-text-muted small ms-1">(removed)</span>
+          {% endif %}
+        {% endif %}
+        <div class="pw-mono small">{{ scan.ip_address }}</div>
+      </div>
+
+      {# Lab / Type #}
+      <div class="col-12 col-md-4">
+        <div class="pw-text-muted small">Lab / Type</div>
+        <div>{{ scan.lab_location or '—' }}
+          {% if device %}&nbsp;&middot;&nbsp;{{ device.device_type }}{% endif %}
+        </div>
+      </div>
+
+      {# Scanned at + duration + port range #}
+      <div class="col-12 col-md-4">
+        <div class="pw-text-muted small">Scanned</div>
+        <div>{{ scan.started_at.strftime("%d %b %Y, %H:%M") if scan.started_at else '—' }}</div>
+        <div class="pw-text-muted small">
+          {% if scan.duration_seconds %}
+            {% set dur = scan.duration_seconds %}
+            Duration:
+            {% if dur >= 60 %}{{ dur // 60 }}m {{ dur % 60 }}s{% else %}{{ dur }}s{% endif %}
+          {% endif %}
+          &nbsp;&middot;&nbsp;
+          Port range:
+          {% if (scan.port_spec or 'top1000') == 'top1000' %}Top 1,000 TCP
+          {% else %}{{ scan.port_spec }}{% endif %}
+          &nbsp;&middot;&nbsp; Host: {{ scan.host_status or 'up' }}
+        </div>
+      </div>
+
+    </div>
+
+    {# Nmap command block with copy button #}
+    <div class="mt-2">
+      <div class="pw-text-muted small mb-1">Nmap command</div>
+      <div class="pw-scan-cmd-block">
+        <code id="nmapCmdText" class="pw-mono">nmap -sV
+          {% if (scan.port_spec or 'top1000') == 'top1000' %}--top-ports 1000
+          {% else %}-p {{ scan.port_spec }}{% endif %}
+          {{ scan.ip_address }}</code>
+        <button type="button" class="btn-icon ms-2"
+                id="copyNmapBtn"
+                data-bs-toggle="tooltip" title="Copy command"
+                aria-label="Copy Nmap command">
+          <i class="bi bi-clipboard" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    {# Previous / Next scan navigation #}
+    <div class="d-flex gap-3 mt-2 small">
+      {% if prev_scan %}
+        <a href="{{ url_for(prev_endpoint, scan_id=prev_scan.id) }}"
+           class="pw-text-muted">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+          Previous scan ({{ prev_scan.id }})
+        </a>
+      {% endif %}
+      {% if next_scan %}
+        <a href="{{ url_for(next_endpoint, scan_id=next_scan.id) }}"
+           class="pw-text-muted ms-auto">
+          Next scan ({{ next_scan.id }})
+          <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+    </div>
+
+  </div>
+</div>

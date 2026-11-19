@@ -1,7 +1,83 @@
-{# viewer/viewer_scan_results.html — Viewer Scan Results (placeholder) #}
+{#
+  viewer/viewer_scan_results.html
+  Viewer Scan Results — read-only. Same look as Admin Scan Results but:
+    - Only the "Print PDF" button (no Scan Again)
+    - No Acknowledge buttons or Acknowledge All modal
+    - Alert banner is read-only text
+    - Device name is plain text (no Allowlist link)
+    - All scan nav links point to /viewer/scans/<id>
+
+  EXPECTS: same context as admin version (scan, findings, changes,
+           prev_scan, next_scan, device, unack_high, pdf_url)
+#}
 {% extends "base/base_layout.html" %}
-{% block title %}Scan Results{% endblock %}
+{% block title %}{{ scan.id }} Results{% endblock %}
+
 {% block content %}
-<h1 class="pw-page-title">Scan Results — {{ scan_id }}</h1>
-<p class="pw-page-subtitle">Viewer scan results — content coming soon.</p>
+
+{# ── 1. TOP ROW ── #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    {# Back link — preserve filters via referrer if it was Viewer Scan History #}
+    <a href="{{ request.referrer if request.referrer and '/viewer/history' in request.referrer else url_for('viewer.history') }}"
+       class="pw-text-muted small d-inline-flex align-items-center gap-1 mb-2">
+      <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Scan History
+    </a>
+    <h1 class="pw-page-title mb-1">Scan Results — {{ scan.id }}</h1>
+    <p class="pw-page-subtitle mb-0">
+      {{ scan.device_name }}
+      &nbsp;&middot;&nbsp;<span class="pw-mono">{{ scan.ip_address }}</span>
+      &nbsp;&middot;&nbsp;{{ scan.started_at.strftime("%d %b %Y, %H:%M") if scan.started_at else '—' }}
+    </p>
+  </div>
+  {# Viewer only gets the PDF download button — no Scan Again #}
+  <a href="{{ pdf_url }}" class="btn btn-primary">
+    <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>
+    Print PDF
+  </a>
+</div>
+
+{# ── 2. READ-ONLY ALERT (no Acknowledge button) ── #}
+{% if unack_high > 0 %}
+<div class="pw-alert-banner mb-3" role="alert" id="viewerScanResultsAlert">
+  <i class="bi bi-exclamation-triangle-fill pw-alert-icon" aria-hidden="true"></i>
+  <span class="pw-alert-text">
+    <strong>{{ unack_high }} high-risk {{ "finding" if unack_high == 1 else "findings" }}</strong>
+    need review by an administrator.
+  </span>
+  <button class="pw-alert-close ms-auto" aria-label="Dismiss"
+          onclick="document.getElementById('viewerScanResultsAlert').style.display='none';">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endif %}
+
+{# ── 3. SCAN DETAILS CARD (shared partial) ── #}
+{% with
+   can_manage=False,
+   prev_endpoint="viewer.scan_results",
+   next_endpoint="viewer.scan_results"
+%}
+  {% include "partials/scan_results_details.html" %}
+{% endwith %}
+
+{# ── 4+5. LABEL TABS + FINDINGS TABLE (shared partial, no Acknowledge) ── #}
+{% with
+   can_manage=False,
+   ack_endpoint="viewer.scan_results"
+%}
+  {% include "partials/scan_results_findings.html" %}
+{% endwith %}
+
+{# ── 6. CHANGES CARD (shared partial) ── #}
+{% with prev_endpoint="viewer.scan_results" %}
+  {% include "partials/scan_results_changes.html" %}
+{% endwith %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+{# Reuse the same JS — it reads URLs from data-* attributes, not hard-coded /admin paths #}
+<script src="{{ url_for('static', filename='js/admin_scan_results.js') }}"></script>
+<script>window.scanResultsData = { findingsCount: {{ findings | length }} };</script>
 {% endblock %}

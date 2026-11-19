@@ -1,0 +1,167 @@
+{#
+  partials/scan_results_findings.html
+  Label filter tabs, risk badges, paginated findings table (8/page).
+  Included by both admin_scan_results.html and viewer_scan_results.html.
+
+  EXPECTS:
+    scan        — scan record dict (for summary counts and acknowledge URLs)
+    findings    — findings list enriched with 'recommendation' key
+    can_manage  — bool: True = show Acknowledge buttons; False = hide them
+    ack_endpoint — string endpoint for single-finding acknowledge POST
+                   (only used when can_manage=True)
+#}
+
+{# ---- Label filter tabs + risk count badges ---- #}
+{% set lc = scan.summary.label_counts if scan.summary else {} %}
+{% set rc = scan.summary.risk_counts   if scan.summary else {} %}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <div class="d-flex gap-1 flex-wrap" id="labelFilterBtns">
+    <button class="btn btn-sm pw-filter-tab active" data-label="all">
+      All ({{ findings | length }})
+    </button>
+    {% for lbl in ["Approved","Unexpected","Risky","Missing"] %}
+      {% if lc.get(lbl, 0) > 0 %}
+        <button class="btn btn-sm pw-filter-tab" data-label="{{ lbl }}">
+          {{ lbl }} ({{ lc.get(lbl, 0) }})
+        </button>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <div class="d-flex gap-2 ms-auto">
+    {% if rc.get('High', 0)   > 0 %}<span class="badge-risk-high">{{ rc.High }} High</span>{% endif %}
+    {% if rc.get('Medium', 0) > 0 %}<span class="badge-risk-medium">{{ rc.Medium }} Medium</span>{% endif %}
+    {% if rc.get('Low', 0)    > 0 %}<span class="badge-risk-low">{{ rc.Low }} Low</span>{% endif %}
+  </div>
+</div>
+
+
+{% if findings %}
+<div class="card mb-3">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-compact mb-0" id="findingsTable">
+        <thead>
+          <tr>
+            <th scope="col" style="width:32px;"></th>
+            <th scope="col">Port</th>
+            <th scope="col">Proto</th>
+            <th scope="col">Service</th>
+            <th scope="col">Label</th>
+            <th scope="col">Risk</th>
+            <th scope="col">Status</th>
+            {% if can_manage %}<th scope="col">Action</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="findingsTableBody">
+          {% for f in findings %}
+
+          {# Main data row #}
+          <tr class="pw-finding-row"
+              data-label="{{ f.label }}"
+              data-finding-id="{{ f.id }}">
+
+            {# Expand chevron #}
+            <td>
+              <button class="btn-icon pw-expand-btn"
+                      aria-label="Expand finding details"
+                      aria-expanded="false">
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+              </button>
+            </td>
+
+            <td class="pw-mono fw-bold">{{ f.port }}</td>
+
+            <td>
+              <span class="pw-proto-badge pw-proto-{{ f.protocol }}">
+                {{ f.protocol | upper }}
+              </span>
+            </td>
+
+            <td>
+              <div class="pw-mono">{{ f.service }}</div>
+              {% if f.version %}
+                <div class="pw-text-muted" style="font-size:0.75rem;">{{ f.version }}</div>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if f.label == 'Risky' %}<span class="badge-label-risky">Risky</span>
+              {% elif f.label == 'Unexpected' %}<span class="badge-label-unexpected">Unexpected</span>
+              {% elif f.label == 'Missing' %}<span class="badge-label-missing">Missing</span>
+              {% else %}<span class="badge-label-approved">Approved</span>{% endif %}
+            </td>
+
+            <td>
+              {% if f.risk_level == 'High' %}<span class="badge-risk-high">High</span>
+              {% elif f.risk_level == 'Medium' %}<span class="badge-risk-medium">Medium</span>
+              {% elif f.risk_level == 'Low' %}<span class="badge-risk-low">Low</span>
+              {% else %}<span class="pw-text-muted">—</span>{% endif %}
+            </td>
+
+            {# Status — same for both roles #}
+            <td>
+              {% if f.label == 'Approved' %}
+                <span class="pw-text-muted">—</span>
+              {% elif f.acknowledged %}
+                <span class="pw-text-muted small">
+                  <i class="bi bi-check-circle me-1" aria-hidden="true"></i>Acknowledged
+                </span>
+              {% else %}
+                <span class="pw-text-muted small">Open</span>
+              {% endif %}
+            </td>
+
+            {# Action column — admin only #}
+            {% if can_manage %}
+            <td>
+              {% if f.label in ('Risky','Unexpected','Missing') and not f.acknowledged %}
+                <form method="POST"
+                      action="{{ url_for(ack_endpoint, scan_id=scan.id, finding_id=f.id) }}"
+                      class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary"
+                          style="font-size:0.75rem; padding:2px 8px;">
+                    Acknowledge
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+            {% endif %}
+
+          </tr>
+
+          {# Detail/expand row — hidden by default #}
+          <tr class="pw-finding-detail pw-finding-row" data-label="{{ f.label }}"
+              style="display:none;">
+            <td></td>
+            <td colspan="{{ 7 if can_manage else 6 }}" class="pw-text-muted small pb-2">
+              <strong>Reason:</strong> {{ f.reason or '—' }}
+              {% if f.recommendation %}
+                <br><strong>Recommendation:</strong> {{ f.recommendation }}
+              {% endif %}
+            </td>
+          </tr>
+
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# No-filter-match empty state (shown by JS) #}
+<div id="noFindingResults" class="pw-empty-state mt-2" style="display:none;">
+  <i class="bi bi-funnel pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No findings match this filter.</p>
+</div>
+
+{# Pagination — 8 per page #}
+<div id="findingsPagination" class="pw-pagination-wrap mt-2 mb-3"></div>
+
+{% else %}
+{# No open ports at all #}
+<div class="pw-empty-state">
+  <i class="bi bi-shield-check pw-empty-icon" aria-hidden="true"></i>
+  <p class="pw-empty-title">No open ports were found on this device during this scan.</p>
+</div>
+{% endif %}

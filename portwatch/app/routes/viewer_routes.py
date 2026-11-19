@@ -203,11 +203,54 @@ def history_export_csv():
 @viewer_bp.route("/scans/<string:scan_id>")
 @viewer_required
 def scan_results(scan_id):
-    """Viewer Scan Results — read-only details for one scan."""
+    """
+    Viewer Scan Results — read-only details for one scan.
+    Uses the same data and services as the Admin version.
+    """
+    from flask import request as _req
+    from app.mock_data.admin_scans_mock import (
+        get_scan, get_previous_scan, get_next_scan,
+    )
+    from app.mock_data.admin_devices_mock import get_device_by_id
+    from app.services.scan_comparator    import compare_scans
+    from app.utils.remediation_tips      import get_recommendation
+
+    scan = get_scan(scan_id)
+    if not scan:
+        flash(f"Scan {scan_id} was not found.", "error")
+        return redirect(url_for("viewer.history"))
+
+    # Enrich each finding with a recommendation (same as admin route)
+    findings = []
+    for f in scan.get("findings", []):
+        findings.append({**f, "recommendation": get_recommendation(f)})
+
+    prev_scan = get_previous_scan(scan)
+    next_scan = get_next_scan(scan)
+    changes   = compare_scans(
+        scan.get("findings", []),
+        prev_scan.get("findings", []) if prev_scan else None,
+    )
+
+    unack_high = sum(
+        1 for f in scan.get("findings", [])
+        if f.get("risk_level") == "High" and not f.get("acknowledged", False)
+    )
+
+    device  = get_device_by_id(scan.get("device_id"))
+    pdf_url = url_for("viewer.scan_report_pdf", scan_id=scan_id)
+
     return render_template(
         "viewer/viewer_scan_results.html",
         active_page="history",
-        scan_id=scan_id,
+        scan=scan,
+        findings=findings,
+        changes=changes,
+        prev_scan=prev_scan,
+        next_scan=next_scan,
+        device=device,
+        unack_high=unack_high,
+        pdf_url=pdf_url,
     )
 
 
